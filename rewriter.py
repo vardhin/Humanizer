@@ -219,7 +219,7 @@ class LocalRefinementRepository:
         
         # Fix common formatting issues - MORE COMPREHENSIVE
         replacements = {
-            r'\s+([,.!?;:])': r'\1',  # Remove space before punctuation
+            r'[\s\r\n]+([,.!?;:])': r'\1',  # Remove space before punctuation
             r'([.!?])\s*([a-z])': r'\1 \2',  # Ensure space after sentence endings
             r'\bi\b': 'I',  # Capitalize standalone 'i'
             r'\s+([)\]}])': r'\1',  # Remove space before closing brackets
@@ -248,6 +248,9 @@ class LocalRefinementRepository:
         
         # Multiple cleanup passes to ensure all spacing issues are fixed
         final_text = re.sub(r'\s+([,.!?;:])', r'\1', final_text)  # Remove spaces before punctuation
+        # Apply multiple passes to ensure no spaces are left before punctuation
+        for _ in range(2):  # Multiple passes to catch nested cases
+            final_text = re.sub(r'\s+([,.!?;:])', r'\1', final_text)
         final_text = re.sub(r'([.!?])\s*([A-Z])', r'\1 \2', final_text)  # Ensure space after sentence endings
         final_text = re.sub(r'\s{2,}', ' ', final_text)  # Replace multiple spaces with single space
         final_text = re.sub(r'\s+$', '', final_text)  # Remove trailing spaces
@@ -608,7 +611,11 @@ class TextRewriteService:
             "conclusion", "evidence", "theory", "hypothesis", "findings",
             "literature", "methodology", "framework", "approach", "concept",
             "significant", "substantial", "considerable", "demonstrate",
-            "indicate", "suggest", "reveal", "establish", "examine"
+            "indicate", "suggest", "reveal", "establish", "examine", "AI", "IoT", "ML", "NLP", 
+            "deep learning", "blockchain", "cloud computing", "big data", "cybersecurity", "data science", 
+            "augmented reality", "virtual reality", "edge computing", "quantum computing", "natural language processing",
+            "machine learning", "artificial intelligence", "internet of things", "data analytics", "digital transformation",
+            "automation", "smart technology", "sustainability", "innovation", "disruption", "technology"
         }
         return word.lower() in common_words
     

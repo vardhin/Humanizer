@@ -29,6 +29,20 @@
     // Processing modes
     let processingMode = 'single';
 
+    // AI Detection state
+    let detectionResults = null;
+    let isDetecting = false;
+    let detectionMode = 'ensemble'; // ensemble, simple, single, segments
+    let selectedDetectionModel = 'chatgpt-detector';
+    let detectionThreshold = 0.7;
+    let segmentLength = 200;
+    let availableDetectionModels = [];
+    let showDetectionResults = false;
+
+    // Combined processing state
+    let combinedResults = null;
+    let showCombinedResults = false;
+
     // API base URL
     const API_BASE = 'http://localhost:8080';
 
@@ -362,6 +376,126 @@
         }
     }
 
+    // Load available detection models
+    async function loadDetectionModels() {
+        try {
+            const response = await fetch(`${API_BASE}/detect_models`);
+            if (response.ok) {
+                const data = await response.json();
+                availableDetectionModels = data.available_models || [];
+            } else {
+                console.warn('Failed to load detection models');
+            }
+        } catch (err) {
+            logError('loadDetectionModels', err);
+            console.warn('Failed to load detection models:', err);
+        }
+    }
+
+    // AI Detection Functions
+    async function detectAIText(mode = 'ensemble') {
+        if (!validateInput()) return;
+
+        isDetecting = true;
+        detectionResults = null;
+        showDetectionResults = false;
+        error = null;
+
+        try {
+            let endpoint = '';
+            let requestBody = {
+                text: inputText,
+                threshold: detectionThreshold
+            };
+
+            switch (mode) {
+                case 'simple':
+                    endpoint = '/detect_simple';
+                    break;
+                case 'single':
+                    endpoint = '/detect_single';
+                    requestBody.model = selectedDetectionModel;
+                    break;
+                case 'segments':
+                    endpoint = '/detect_segments';
+                    requestBody.segment_length = segmentLength;
+                    break;
+                case 'ensemble':
+                default:
+                    endpoint = '/detect';
+                    break;
+            }
+
+            const response = await fetch(`${API_BASE}${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (response.ok) {
+                detectionResults = await response.json();
+                detectionResults.mode = mode;
+                showDetectionResults = true;
+                
+                const prediction = detectionResults.prediction || (detectionResults.is_ai_generated ? 'AI-generated' : 'Human-written');
+                showToast(`Detection complete: ${prediction}`);
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Detection failed: ${response.status}`);
+            }
+        } catch (err) {
+            logError('detectAIText', err, { mode, inputLength: inputText.length });
+            error = err.message;
+            showToast(error, 'error');
+        } finally {
+            isDetecting = false;
+        }
+    }
+
+    // Humanize and check combined function
+    async function humanizeAndCheck() {
+        if (!validateInput()) return;
+
+        isProcessing = true;
+        currentStep = 'humanizing and checking';
+        combinedResults = null;
+        showCombinedResults = false;
+        error = null;
+
+        try {
+            const response = await fetch(`${API_BASE}/humanize_and_check`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: inputText,
+                    paraphrasing: true,
+                    enhanced: useEnhanced,
+                    model: selectedModel,
+                    detection_threshold: detectionThreshold
+                })
+            });
+
+            if (response.ok) {
+                combinedResults = await response.json();
+                showCombinedResults = true;
+                
+                const improved = combinedResults.improvement.detection_improved;
+                const reduction = combinedResults.improvement.ai_probability_reduction;
+                showToast(`Processing complete! ${improved ? 'Detection improved' : 'No detection improvement'} (${(reduction * 100).toFixed(1)}% reduction)`);
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Combined processing failed: ${response.status}`);
+            }
+        } catch (err) {
+            logError('humanizeAndCheck', err, { inputLength: inputText.length });
+            error = err.message;
+            showToast(error, 'error');
+        } finally {
+            isProcessing = false;
+            currentStep = 'complete';
+        }
+    }
+
     // Character count helper
     $: characterCount = inputText.length;
     $: wordCount = inputText.trim().split(/\s+/).filter(word => word.length > 0).length;
@@ -369,6 +503,7 @@
     onMount(() => {
         try {
             loadBackendInfo();
+            loadDetectionModels();
         } catch (err) {
             logError('onMount', err);
         }
@@ -376,8 +511,8 @@
 </script>
 
 <svelte:head>
-    <title>AI Text Humanizer</title>
-    <meta name="description" content="Transform AI-generated text into natural, human-like content" />
+    <title>AI Text Humanizer & Detector</title>
+    <meta name="description" content="Transform AI-generated text into natural, human-like content and detect AI-generated text" />
 </svelte:head>
 
 <!-- Toast Notification -->
@@ -393,7 +528,7 @@
     <!-- Compact Header -->
     <header class="header">
         <div class="header__container">
-            <h1 class="header__title">AI Text Humanizer</h1>
+            <h1 class="header__title">AI Text Humanizer & Detector</h1>
             {#if backendStatus}
                 <div class="status" class:status--connected={backendStatus.status === 'healthy'}>
                     <span class="status__dot"></span>
@@ -449,8 +584,100 @@
                     </div>
                 </div>
 
+                <!-- AI Detection Controls -->
+                <div class="detection-config">
+                    <h3>AI Detection Settings</h3>
+                    <div class="detection-row">
+                        <div class="detection-option">
+                            <label class="detection-label">Detection Mode:</label>
+                            <select bind:value={detectionMode} class="detection-select">
+                                <option value="ensemble">Ensemble (Multiple Models)</option>
+                                <option value="simple">Simple Detection</option>
+                                <option value="single">Single Model</option>
+                                <option value="segments">Segment Analysis</option>
+                            </select>
+                        </div>
+
+                        {#if detectionMode === 'single' && availableDetectionModels.length > 0}
+                            <div class="detection-option">
+                                <label class="detection-label">Model:</label>
+                                <select bind:value={selectedDetectionModel} class="detection-select">
+                                    {#each availableDetectionModels as model}
+                                        <option value={model.name}>{model.description}</option>
+                                    {/each}
+                                </select>
+                            </div>
+                        {/if}
+
+                        <div class="detection-option">
+                            <label class="detection-label">Threshold:</label>
+                            <input 
+                                type="range" 
+                                min="0.1" 
+                                max="0.9" 
+                                step="0.1" 
+                                bind:value={detectionThreshold}
+                                class="threshold-slider"
+                            />
+                            <span class="threshold-value">{detectionThreshold}</span>
+                        </div>
+
+                        {#if detectionMode === 'segments'}
+                            <div class="detection-option">
+                                <label class="detection-label">Segment Length:</label>
+                                <input 
+                                    type="number" 
+                                    min="50" 
+                                    max="1000" 
+                                    step="50" 
+                                    bind:value={segmentLength}
+                                    class="segment-input"
+                                />
+                            </div>
+                        {/if}
+                    </div>
+                </div>
+
                 <!-- Action Buttons -->
                 <div class="actions">
+                    <!-- AI Detection Actions -->
+                    <div class="action-group">
+                        <h3>AI Detection</h3>
+                        <div class="buttons">
+                            <button 
+                                class="btn btn--detection" 
+                                on:click={() => detectAIText(detectionMode)} 
+                                disabled={isDetecting || isProcessing || !inputText.trim()}
+                            >
+                                {#if isDetecting}
+                                    <div class="spinner"></div>
+                                    Detecting...
+                                {:else}
+                                    Detect AI Content
+                                {/if}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Combined Processing -->
+                    <div class="action-group">
+                        <h3>Humanize & Verify</h3>
+                        <div class="buttons">
+                            <button 
+                                class="btn btn--combined" 
+                                on:click={humanizeAndCheck} 
+                                disabled={isProcessing || isDetecting || !inputText.trim()}
+                            >
+                                {#if isProcessing && currentStep === 'humanizing and checking'}
+                                    <div class="spinner"></div>
+                                    Processing & Checking...
+                                {:else}
+                                    Humanize & Check Detection
+                                {/if}
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="action-group">
                         <h3>Complete Pipeline (Paraphrase → Rewrite)</h3>
                         <div class="buttons">
@@ -509,6 +736,153 @@
                     <span class="error__icon">⚠</span>
                     {error}
                 </div>
+            {/if}
+
+            <!-- AI Detection Results -->
+            {#if showDetectionResults && detectionResults}
+                <section class="results">
+                    <h2 class="results__title">AI Detection Results</h2>
+                    
+                    <div class="detection-summary">
+                        <div class="detection-main">
+                            <div class="prediction-badge" class:ai-detected={detectionResults.is_ai_generated} class:human-detected={!detectionResults.is_ai_generated}>
+                                {detectionResults.prediction || (detectionResults.is_ai_generated ? 'AI-Generated' : 'Human-Written')}
+                            </div>
+                            <div class="confidence-meter">
+                                <div class="confidence-label">Confidence: {(detectionResults.confidence || detectionResults.ai_probability || 0).toFixed(3)}</div>
+                                <div class="confidence-bar">
+                                    <div 
+                                        class="confidence-fill" 
+                                        class:ai-confidence={detectionResults.is_ai_generated}
+                                        style="width: {((detectionResults.confidence || detectionResults.ai_probability || 0) * 100)}%"
+                                    ></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="detection-stats">
+                            {#if detectionResults.ai_probability !== undefined}
+                                <span class="stat">AI: {(detectionResults.ai_probability * 100).toFixed(1)}%</span>
+                            {/if}
+                            {#if detectionResults.human_probability !== undefined}
+                                <span class="stat">Human: {(detectionResults.human_probability * 100).toFixed(1)}%</span>
+                            {/if}
+                            <span class="stat">Mode: {detectionResults.mode}</span>
+                            <span class="stat">Length: {detectionResults.text_length || inputText.length} chars</span>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Results based on mode -->
+                    {#if detectionResults.mode === 'ensemble' && detectionResults.individual_results}
+                        <div class="ensemble-details">
+                            <h4>Individual Model Results</h4>
+                            <div class="model-results">
+                                {#each detectionResults.individual_results as result}
+                                    <div class="model-result">
+                                        <div class="model-name">{result.model_used}</div>
+                                        <div class="model-prediction" class:ai-result={result.ai_probability > 0.5}>
+                                            {(result.ai_probability * 100).toFixed(1)}% AI
+                                        </div>
+                                    </div>
+                                {/each}
+                            </div>
+                        </div>
+                    {/if}
+
+                    {#if detectionResults.mode === 'segments' && detectionResults.segment_results}
+                        <div class="segment-details">
+                            <h4>Segment Analysis</h4>
+                            <div class="segment-stats">
+                                <span class="badge">Total: {detectionResults.total_segments}</span>
+                                <span class="badge">Consistency: {(detectionResults.consistency * 100).toFixed(1)}%</span>
+                                <span class="badge">Segment Length: {detectionResults.segment_length_used}</span>
+                            </div>
+                            <div class="segment-results">
+                                {#each detectionResults.segment_results as segment, index}
+                                    <div class="segment-item">
+                                        <div class="segment-header">
+                                            <span class="segment-number">#{index + 1}</span>
+                                            <span class="segment-prediction" class:ai-segment={segment.is_ai_generated}>
+                                                {segment.prediction} ({(segment.ai_probability * 100).toFixed(1)}%)
+                                            </span>
+                                        </div>
+                                        <div class="segment-text">
+                                            {segment.text.substring(0, 100)}...
+                                        </div>
+                                    </div>
+                                {/each}
+                            </div>
+                        </div>
+                    {/if}
+                </section>
+            {/if}
+
+            <!-- Combined Results -->
+            {#if showCombinedResults && combinedResults}
+                <section class="results">
+                    <h2 class="results__title">Humanization & Detection Results</h2>
+                    
+                    <div class="combined-summary">
+                        <div class="improvement-badge" class:improved={combinedResults.improvement.detection_improved} class:not-improved={!combinedResults.improvement.detection_improved}>
+                            {combinedResults.improvement.detection_improved ? 'Detection Improved! ✓' : 'No Improvement ✗'}
+                        </div>
+                        
+                        <div class="improvement-stats">
+                            <span class="stat">Reduction: {(combinedResults.improvement.ai_probability_reduction * 100).toFixed(1)}%</span>
+                            <span class="stat">Improvement: {combinedResults.improvement.percentage_improvement.toFixed(1)}%</span>
+                        </div>
+                    </div>
+
+                    <div class="before-after">
+                        <div class="detection-comparison">
+                            <div class="before-detection">
+                                <h4>Before Humanization</h4>
+                                <div class="detection-result">
+                                    <div class="prediction-small" class:ai-detected={combinedResults.original_detection.is_ai_generated}>
+                                        {combinedResults.original_detection.prediction}
+                                    </div>
+                                    <div class="probability">AI: {(combinedResults.original_detection.ai_probability * 100).toFixed(1)}%</div>
+                                </div>
+                            </div>
+
+                            <div class="after-detection">
+                                <h4>After Humanization</h4>
+                                <div class="detection-result">
+                                    <div class="prediction-small" class:ai-detected={combinedResults.humanized_detection.is_ai_generated} class:human-detected={!combinedResults.humanized_detection.is_ai_generated}>
+                                        {combinedResults.humanized_detection.prediction}
+                                    </div>
+                                    <div class="probability">AI: {(combinedResults.humanized_detection.ai_probability * 100).toFixed(1)}%</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-comparison">
+                            <div class="text-before">
+                                <div class="text-header">
+                                    <h4>Original Text</h4>
+                                    <button class="copy-btn" on:click={() => copyToClipboard(combinedResults.original_text)}>
+                                        Copy
+                                    </button>
+                                </div>
+                                <div class="text-content">
+                                    {combinedResults.original_text}
+                                </div>
+                            </div>
+
+                            <div class="text-after">
+                                <div class="text-header">
+                                    <h4>Humanized Text</h4>
+                                    <button class="copy-btn copy-btn--primary" on:click={() => copyToClipboard(combinedResults.humanized_text)}>
+                                        Copy
+                                    </button>
+                                </div>
+                                <div class="text-content">
+                                    {combinedResults.humanized_text}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             {/if}
 
             <!-- Pipeline Results -->
@@ -968,6 +1342,24 @@
         background: #e5e7eb;
     }
 
+    .btn--detection {
+        background: #0ea5e9;
+        color: white;
+    }
+
+    .btn--detection:hover:not(:disabled) {
+        background: #0284c7;
+    }
+
+    .btn--combined {
+        background: #8b5cf6;
+        color: white;
+    }
+
+    .btn--combined:hover:not(:disabled) {
+        background: #7c3aed;
+    }
+
     .spinner {
         width: 1rem;
         height: 1rem;
@@ -1290,11 +1682,6 @@
         flex-wrap: wrap;
     }
 
-    .btn--small {
-        padding: 0.5rem 0.75rem;
-        font-size: 0.75rem;
-    }
-
     /* Configuration */
     .config {
         margin-bottom: 1.5rem;
@@ -1312,24 +1699,365 @@
         flex-wrap: wrap;
     }
 
-    /* Pipeline Results */
-    .pipeline-results {
+    /* AI Detection Styles */
+    .detection-config {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #f0f9ff;
+        border-radius: 8px;
+        border: 1px solid #e0f2fe;
+    }
+
+    .detection-config h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0 0 0.75rem 0;
+        color: #0c4a6e;
+    }
+
+    .detection-row {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .detection-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .detection-label {
+        font-size: 0.875rem;
+        color: #374151;
+        white-space: nowrap;
+    }
+
+    .detection-select {
+        padding: 0.375rem 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        background: white;
+    }
+
+    .threshold-slider {
+        width: 100px;
+    }
+
+    .threshold-value {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #1f2937;
+        min-width: 2rem;
+        text-align: center;
+    }
+
+    .segment-input {
+        width: 80px;
+        padding: 0.375rem 0.5rem;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        font-size: 0.875rem;
+    }
+
+    /* Detection Results */
+    .detection-summary {
         display: flex;
         flex-direction: column;
         gap: 1rem;
+        margin-bottom: 1.5rem;
     }
 
-    .step-result {
+    .detection-main {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .prediction-badge {
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 1.125rem;
+        text-align: center;
+    }
+
+    .prediction-badge.ai-detected {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 2px solid #fecaca;
+    }
+
+    .prediction-badge.human-detected {
+        background: #f0fdf4;
+        color: #166534;
+        border: 2px solid #bbf7d0;
+    }
+
+    .confidence-meter {
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .confidence-label {
+        font-size: 0.875rem;
+        color: #6b7280;
+        margin-bottom: 0.5rem;
+    }
+
+    .confidence-bar {
+        width: 100%;
+        height: 8px;
+        background: #e5e7eb;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .confidence-fill {
+        height: 100%;
+        background: #10b981;
+        transition: width 0.3s ease;
+    }
+
+    .confidence-fill.ai-confidence {
+        background: #ef4444;
+    }
+
+    .detection-stats {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .stat {
+        padding: 0.25rem 0.75rem;
+        background: #f3f4f6;
+        border-radius: 12px;
+        font-size: 0.875rem;
+        color: #374151;
+    }
+
+    /* Ensemble Results */
+    .ensemble-details {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .ensemble-details h4 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0 0 0.75rem 0;
+        color: #374151;
+    }
+
+    .model-results {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .model-result {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        background: #f9fafb;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .model-name {
+        font-size: 0.875rem;
+        color: #374151;
+        font-weight: 500;
+    }
+
+    .model-prediction {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #10b981;
+    }
+
+    .model-prediction.ai-result {
+        color: #ef4444;
+    }
+
+    /* Segment Results */
+    .segment-details {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .segment-details h4 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0 0 0.75rem 0;
+        color: #374151;
+    }
+
+    .segment-stats {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .segment-results {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+    }
+
+    .segment-item {
+        border-bottom: 1px solid #e5e7eb;
+        padding: 0.75rem;
+    }
+
+    .segment-item:last-child {
+        border-bottom: none;
+    }
+
+    .segment-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .segment-number {
+        font-size: 0.75rem;
+        color: #6b7280;
+        font-weight: 600;
+    }
+
+    .segment-prediction {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #10b981;
+    }
+
+    .segment-prediction.ai-segment {
+        color: #ef4444;
+    }
+
+    .segment-text {
+        font-size: 0.875rem;
+        color: #6b7280;
+        line-height: 1.4;
+    }
+
+    /* Combined Results */
+    .combined-summary {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .improvement-badge {
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 1.125rem;
+    }
+
+    .improvement-badge.improved {
+        background: #f0fdf4;
+        color: #166534;
+        border: 2px solid #bbf7d0;
+    }
+
+    .improvement-badge.not-improved {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 2px solid #fecaca;
+    }
+
+    .improvement-stats {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .before-after {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .detection-comparison {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .before-detection,
+    .after-detection {
+        padding: 1rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #f9fafb;
+    }
+
+    .before-detection h4,
+    .after-detection h4 {
+        font-size: 0.875rem;
+        font-weight: 600;
+        margin: 0 0 0.75rem 0;
+        color: #374151;
+    }
+
+    .detection-result {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .prediction-small {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+        text-align: center;
+        font-size: 0.875rem;
+    }
+
+    .prediction-small.ai-detected {
+        background: #fecaca;
+        color: #991b1b;
+    }
+
+    .prediction-small.human-detected {
+        background: #bbf7d0;
+        color: #166534;
+    }
+
+    .probability {
+        font-size: 0.875rem;
+        color: #6b7280;
+        text-align: center;
+    }
+
+    .text-comparison {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .text-before,
+    .text-after {
         border: 1px solid #e5e7eb;
         border-radius: 8px;
         overflow: hidden;
     }
 
-    .step-result--final {
-        border-color: #3b82f6;
-    }
-
-    .step-result__header {
+    .text-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -1338,39 +2066,20 @@
         border-bottom: 1px solid #e5e7eb;
     }
 
-    .step-result--final .step-result__header {
-        background: #eff6ff;
-        border-color: #dbeafe;
-    }
-
-    .step-result__header h3 {
+    .text-header h4 {
         font-size: 0.875rem;
         font-weight: 600;
         margin: 0;
         color: #374151;
     }
 
-    .step-result--final .step-result__header h3 {
-        color: #1e40af;
-    }
-
-    .step-result__text {
+    .text-content {
         padding: 1rem;
         line-height: 1.6;
+        font-size: 0.875rem;
         white-space: pre-wrap;
-        font-size: 0.875rem;
-    }
-
-    .result__actions {
-        display: flex;
-        gap: 0.5rem;
-        align-items: center;
-    }
-
-    .results__subtitle {
-        margin: 0 0 1rem 0;
-        color: #6b7280;
-        font-size: 0.875rem;
+        max-height: 300px;
+        overflow-y: auto;
     }
 
     /* Processing Flow */
@@ -1507,6 +2216,26 @@
         .result__actions {
             width: 100%;
             justify-content: space-between;
+        }
+
+        .detection-row {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .detection-comparison,
+        .text-comparison {
+            grid-template-columns: 1fr;
+        }
+
+        .detection-main {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .combined-summary {
+            flex-direction: column;
+            align-items: flex-start;
         }
     }
 </style>

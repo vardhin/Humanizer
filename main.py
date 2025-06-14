@@ -5,10 +5,12 @@ from typing import Dict, Tuple
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import logging
+import re
 
 # Import our utility modules
 from paraphraser import paraphrase_text, load_model, get_available_models, get_current_model, get_device_info
 from rewriter import rewrite_text, get_synonym, refine_text
+from detector import AITextDetector, detect_ai_text, is_ai_generated
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -17,6 +19,24 @@ logger = logging.getLogger(__name__)
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app, origins="*")
+
+def clean_final_text(text: str) -> str:
+    """
+    Clean the final text by:
+    1. Replacing every "—" with ", "
+    2. Removing spaces that appear before "," or "."
+    """
+    if not text:
+        return text
+    
+    # Step 1: Replace em dashes with commas
+    cleaned_text = text.replace("—", ", ")
+    
+    # Step 2: Remove spaces before commas and periods
+    # This regex finds spaces that are followed by comma or period
+    cleaned_text = re.sub(r' +([,.])', r'\1', cleaned_text)
+    
+    return cleaned_text
 
 class HumanizerService:
     """Main orchestrator service that combines paraphrasing and rewriting"""
@@ -35,6 +55,7 @@ class HumanizerService:
         Complete text humanization pipeline:
         1. Paraphrase the text (optional)
         2. Rewrite and refine the result
+        3. Clean the final text
         """
         
         stats = {
@@ -78,6 +99,11 @@ class HumanizerService:
             else:
                 stats["processing_steps"].append("rewriting")
             
+            # Step 3: Clean the final text
+            logger.info("Cleaning final text")
+            final_text = clean_final_text(final_text)
+            stats["processing_steps"].append("text_cleaning")
+            
             stats["final_length"] = len(final_text)
             stats["length_change"] = stats["final_length"] - stats["original_length"]
             
@@ -93,6 +119,7 @@ class HumanizerService:
 
 # Initialize services
 humanizer_service = HumanizerService()
+ai_detector = AITextDetector()
 
 @app.route('/', methods=['GET'])
 def health_check():
@@ -384,15 +411,19 @@ def rewrite_only_handler():
         if error:
             return jsonify({"error": error}), 500
         
+        # Clean the final rewritten text
+        rewritten_text = clean_final_text(rewritten_text or text)
+        
         return jsonify({
-            'rewritten_text': rewritten_text or text,
+            'rewritten_text': rewritten_text,
             'success': True,
             'original_text': text,
             'statistics': {
                 'original_length': len(text),
-                'rewritten_length': len(rewritten_text) if rewritten_text else len(text),
-                'length_change': (len(rewritten_text) if rewritten_text else len(text)) - len(text),
-                'enhanced_rewriting_used': enhanced
+                'rewritten_length': len(rewritten_text),
+                'length_change': len(rewritten_text) - len(text),
+                'enhanced_rewriting_used': enhanced,
+                'text_cleaning_applied': True
             }
         })
 
@@ -621,6 +652,311 @@ def paraphrase_all_handler():
     except Exception as e:
         logger.error(f"Error in /paraphrase_all: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+# AI detection endpoints
+@app.route('/detect', methods=['POST'])
+def detect_ai_handler():
+    """Main AI detection endpoint using ensemble method"""
+    try:
+        if not request.is_json:
+            return jsonify({"error": "Content-Type must be application/json"}), 400
+            
+        data = request.get_json()
+        text = data.get('text', '').strip()
+        threshold = data.get('threshold', 0.7)
+        models = data.get('models', None)  # Optional specific models
+        
+        if not text:
+            return jsonify({"error": "No text provided"}), 400
+        
+        if len(text) < 20:
+            return jsonify({"error": "Text must be at least 20 characters long"}), 400
+        
+        if len(text) > 10000:
+            return jsonify({"error": "Text must be less than 10,000 characters"}), 400
+        
+        # Get ensemble detection results
+        result = detect_ai_text(text, method="ensemble", models=models)
+        
+        # Add simple classification
+        is_ai, confidence = is_ai_generated(text, threshold)
+        
+        response = {
+            "text_preview": text[:100] + "..." if len(text) > 100 else text,
+            "is_ai_generated": is_ai,
+            "ai_probability": result['ensemble_ai_probability'],
+            "human_probability": result['ensemble_human_probability'],
+            "prediction": result['prediction'],
+            "confidence": result['confidence'],
+            "threshold_used": threshold,
+            "models_used": result['models_used'],
+            "individual_results": result['individual_results'],
+            "text_length": len(text),
+            "success": True
+        }
+        
+        logger.info(f"AI detection completed: {result['prediction']} ({result['ensemble_ai_probability']:.3f})")
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error in AI detection: {str(e)}")
+        return jsonify({
+            "error": "Failed to analyze text",
+            "success": False
+        }), 500
+
+@app.route('/detect_simple', methods=['POST'])
+def detect_simple_handler():
+    """Simple AI detection endpoint - returns just boolean result"""
+    try:
+        if not request.is_json:
+            return jsonify({"error": "Content-Type must be application/json"}), 400
+            
+        data = request.get_json()
+        text = data.get('text', '').strip()
+        threshold = data.get('threshold', 0.7)
+        
+        if not text:
+            return jsonify({"error": "No text provided"}), 400
+        
+        if len(text) < 20:
+            return jsonify({"error": "Text must be at least 20 characters long"}), 400
+        
+        # Simple detection
+        is_ai, confidence = is_ai_generated(text, threshold)
+        
+        return jsonify({
+            "is_ai_generated": is_ai,
+            "confidence": float(confidence),
+            "prediction": "AI-generated" if is_ai else "Human-written",
+            "threshold": threshold,
+            "success": True
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in simple AI detection: {str(e)}")
+        return jsonify({
+            "error": "Failed to analyze text",
+            "success": False
+        }), 500
+
+@app.route('/detect_segments', methods=['POST'])
+def detect_segments_handler():
+    """Analyze text by segments for detailed AI detection"""
+    try:
+        if not request.is_json:
+            return jsonify({"error": "Content-Type must be application/json"}), 400
+            
+        data = request.get_json()
+        text = data.get('text', '').strip()
+        segment_length = data.get('segment_length', 200)
+        
+        if not text:
+            return jsonify({"error": "No text provided"}), 400
+        
+        if len(text) < 100:
+            return jsonify({"error": "Text must be at least 100 characters long for segment analysis"}), 400
+        
+        if len(text) > 20000:
+            return jsonify({"error": "Text must be less than 20,000 characters for segment analysis"}), 400
+        
+        # Validate segment length
+        if segment_length < 50 or segment_length > 1000:
+            return jsonify({"error": "Segment length must be between 50 and 1000 characters"}), 400
+        
+        # Get segment analysis
+        result = ai_detector.analyze_text_segments(text, segment_length)
+        
+        response = {
+            "overall_prediction": result['overall_prediction'],
+            "overall_ai_probability": result['overall_ai_probability'],
+            "confidence": result['confidence'],
+            "consistency": result['consistency'],
+            "total_segments": result['total_segments'],
+            "text_length": result['text_length'],
+            "segment_length_used": segment_length,
+            "segment_results": result['segment_results'],
+            "success": True
+        }
+        
+        logger.info(f"Segment analysis completed: {result['total_segments']} segments, {result['overall_prediction']}")
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error in segment analysis: {str(e)}")
+        return jsonify({
+            "error": "Failed to analyze text segments",
+            "success": False
+        }), 500
+
+@app.route('/detect_single', methods=['POST'])
+def detect_single_model_handler():
+    """AI detection using a single specified model"""
+    try:
+        if not request.is_json:
+            return jsonify({"error": "Content-Type must be application/json"}), 400
+            
+        data = request.get_json()
+        text = data.get('text', '').strip()
+        model_name = data.get('model', 'chatgpt-detector')
+        
+        if not text:
+            return jsonify({"error": "No text provided"}), 400
+        
+        if len(text) < 20:
+            return jsonify({"error": "Text must be at least 20 characters long"}), 400
+        
+        # Available models for validation
+        available_models = [
+            "roberta-base-openai-detector",
+            "roberta-large-openai-detector", 
+            "chatgpt-detector",
+            "mixed-detector"
+        ]
+        
+        if model_name not in available_models:
+            return jsonify({
+                "error": f"Model {model_name} not supported",
+                "available_models": available_models
+            }), 400
+        
+        # Single model detection
+        result = ai_detector.detect_single_model(text, model_name)
+        
+        response = {
+            "text_preview": text[:100] + "..." if len(text) > 100 else text,
+            "ai_probability": result['ai_probability'],
+            "human_probability": result['human_probability'],
+            "prediction": "AI-generated" if result['ai_probability'] > 0.5 else "Human-written",
+            "model_used": result['model_used'],
+            "text_length": len(text),
+            "success": True
+        }
+        
+        if 'error' in result:
+            response['warning'] = result['error']
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error in single model detection: {str(e)}")
+        return jsonify({
+            "error": "Failed to analyze text with specified model",
+            "success": False
+        }), 500
+
+@app.route('/detect_models', methods=['GET'])
+def get_detection_models():
+    """Get available AI detection models"""
+    return jsonify({
+        "available_models": [
+            {
+                "name": "roberta-base-openai-detector",
+                "description": "OpenAI's RoBERTa base detector",
+                "type": "base"
+            },
+            {
+                "name": "roberta-large-openai-detector", 
+                "description": "OpenAI's RoBERTa large detector",
+                "type": "large"
+            },
+            {
+                "name": "chatgpt-detector",
+                "description": "Specialized ChatGPT detector",
+                "type": "specialized"
+            },
+            {
+                "name": "mixed-detector",
+                "description": "Mixed AI content detector",
+                "type": "general"
+            }
+        ],
+        "default_ensemble": ["chatgpt-detector", "mixed-detector"],
+        "recommended": "chatgpt-detector"
+    })
+
+@app.route('/humanize_and_check', methods=['POST'])
+def humanize_and_check_handler():
+    """Humanize text and then check if it passes AI detection"""
+    try:
+        if not request.is_json:
+            return jsonify({"error": "Content-Type must be application/json"}), 400
+            
+        data = request.get_json()
+        text = data.get('text', '').strip()
+        
+        if not text:
+            return jsonify({"error": "No text provided"}), 400
+        
+        if len(text) < 10:
+            return jsonify({"error": "Text must be at least 10 characters long"}), 400
+        
+        if len(text) > 5000:
+            return jsonify({"error": "Text must be less than 5000 characters"}), 400
+        
+        # Extract humanization options
+        use_paraphrasing = data.get("paraphrasing", True)
+        use_enhanced = data.get("enhanced", True)
+        paraphrase_model = data.get("model", None)
+        detection_threshold = data.get("detection_threshold", 0.7)
+        
+        # Step 1: Check original text
+        logger.info("Checking original text for AI detection")
+        original_detection = detect_ai_text(text, method="ensemble")
+        original_is_ai, original_confidence = is_ai_generated(text, detection_threshold)
+        
+        # Step 2: Humanize the text
+        logger.info("Humanizing text")
+        humanized_text, humanization_stats = humanizer_service.humanize_text(
+            text=text,
+            use_paraphrasing=use_paraphrasing,
+            use_enhanced_rewriting=use_enhanced,
+            paraphrase_model=paraphrase_model
+        )
+        
+        # Step 3: Check humanized text
+        logger.info("Checking humanized text for AI detection")
+        humanized_detection = detect_ai_text(humanized_text, method="ensemble")
+        humanized_is_ai, humanized_confidence = is_ai_generated(humanized_text, detection_threshold)
+        
+        # Calculate improvement
+        ai_prob_reduction = original_detection['ensemble_ai_probability'] - humanized_detection['ensemble_ai_probability']
+        detection_improved = original_is_ai and not humanized_is_ai
+        
+        response = {
+            "original_text": text,
+            "humanized_text": humanized_text,
+            "humanization_stats": humanization_stats,
+            "original_detection": {
+                "is_ai_generated": original_is_ai,
+                "ai_probability": original_detection['ensemble_ai_probability'],
+                "prediction": original_detection['prediction'],
+                "confidence": original_confidence
+            },
+            "humanized_detection": {
+                "is_ai_generated": humanized_is_ai,
+                "ai_probability": humanized_detection['ensemble_ai_probability'],
+                "prediction": humanized_detection['prediction'],
+                "confidence": humanized_confidence
+            },
+            "improvement": {
+                "detection_improved": detection_improved,
+                "ai_probability_reduction": ai_prob_reduction,
+                "percentage_improvement": (ai_prob_reduction / original_detection['ensemble_ai_probability'] * 100) if original_detection['ensemble_ai_probability'] > 0 else 0
+            },
+            "threshold_used": detection_threshold,
+            "success": True
+        }
+        
+        logger.info(f"Humanization and detection completed. Improved: {detection_improved}, Reduction: {ai_prob_reduction:.3f}")
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error in humanize and check: {str(e)}")
+        return jsonify({
+            "error": "Failed to humanize and check text",
+            "success": False
+        }), 500
 
 # Legacy endpoint for backward compatibility
 @app.route('/rewrite', methods=['POST'])

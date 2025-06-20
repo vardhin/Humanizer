@@ -9,7 +9,7 @@
         Zap, Users, Bot, ArrowRight, Copy, RefreshCw, Eye,
         Settings, HelpCircle, Lightbulb, Play, ChevronDown,
         ChevronRight, AlertTriangle, CheckCircle, XCircle,
-        ArrowDown, Hash, FileEdit, Highlighter, List,
+        ArrowDown, Hash, FileEdit, Highlighter,
         Sparkles, GitBranch, Layers, TestTube, Activity,
         TrendingUp, Clock, Gauge, Shield, Info, AlertCircle,
         FileOutput
@@ -27,7 +27,7 @@
         toastMessage, toastType, showToastFlag,
         
         // Enhanced AI Detection features
-        lineDetectionResults, sentenceDetectionResults, highlightedText,
+        lineDetectionResults, highlightedText,
         detectionFormat, useAllDetectionModels, topNModels, detectionCriteria,
         minLineLength,
         
@@ -36,12 +36,12 @@
         loadDetectionModels, detectAIText, humanizeAndCheck,
         
         // Enhanced detection functions
-        detectAILines, detectAISentences, highlightAIText,
+        detectAILines, highlightAIText,
         detectWithAllModels, detectWithSelectedModels, detectWithTopModels,
         getDetectionModelInfo, getRecommendedDetectionModel,
         
         // Add the missing function
-        validateDetectionInput, getAILines, showToast
+        validateDetectionInput, showToast
     } from '$lib/script.js';
 
     // New stores for enhanced configuration
@@ -50,10 +50,6 @@
     const showAdvancedConfig = writable(false);
     const showDetectionHelp = writable(false);
     const showHumanizationHelp = writable(false);
-
-    // Add new store for AI lines backup display
-    const aiLinesSimple = writable([]);
-    const showAILines = writable(false);
 
     // Derived stores for computed values
     const characterCount = derived(inputText, $inputText => $inputText.length);
@@ -87,10 +83,6 @@
         detectAILines($inputText, $detectionThreshold, $minLineLength);
     };
 
-    const handleDetectAISentences = () => {
-        detectAISentences($inputText, $detectionThreshold);
-    };
-
     const handleHighlightAIText = () => {
         highlightAIText($inputText, $detectionThreshold, $detectionFormat);
     };
@@ -122,34 +114,6 @@
     const setRecommendedModels = (criteria) => {
         const recommended = getRecommendedDetectionModel(criteria);
         selectedDetectionModels.set([recommended]);
-    };
-
-    // Add handler for getting AI lines as backup
-    const handleGetAILines = async () => {
-        if (!validateDetectionInput($inputText)) return;
-        
-        isDetecting.set(true);
-        error.set(null);
-        
-        try {
-            const lines = await getAILines($inputText, $detectionThreshold);
-            // Fix: Ensure we're extracting the text content from objects
-            const processedLines = lines.map(line => {
-                if (typeof line === 'object' && line !== null) {
-                    return line.text || line.content || String(line);
-                }
-                return String(line);
-            });
-            
-            aiLinesSimple.set(processedLines);
-            showAILines.set(true);
-            showToast(`Found ${processedLines.length} AI-generated lines`);
-        } catch (err) {
-            error.set(err.message);
-            showToast(err.message, 'error');
-        } finally {
-            isDetecting.set(false);
-        }
     };
 
     onMount(() => {
@@ -237,32 +201,12 @@
                         
                         <button 
                             class="nav-btn nav-btn--advanced" 
-                            on:click={handleDetectAISentences} 
-                            disabled={$isDetecting || $isProcessing || !$inputText.trim()}
-                            title="Analyze each sentence individually"
-                        >
-                            <FileEdit size={16} />
-                            Sentence Analysis
-                        </button>
-                        
-                        <button 
-                            class="nav-btn nav-btn--advanced" 
                             on:click={handleHighlightAIText} 
                             disabled={$isDetecting || $isProcessing || !$inputText.trim()}
                             title="Highlight AI-generated portions"
                         >
                             <Highlighter size={16} />
                             Highlight AI
-                        </button>
-                        
-                        <button 
-                            class="nav-btn nav-btn--advanced" 
-                            on:click={handleGetAILines} 
-                            disabled={$isDetecting || $isProcessing || !$inputText.trim()}
-                            title="Get simple list of AI lines"
-                        >
-                            <List size={16} />
-                            List AI Lines
                         </button>
                     </div>
                 </div>
@@ -393,7 +337,6 @@
                                 <li><strong>All Models:</strong> Runs all available models and shows individual results</li>
                                 <li><strong>Top N Models:</strong> Uses the best performing models based on criteria</li>
                                 <li><strong>Line Analysis:</strong> Analyzes text line by line</li>
-                                <li><strong>Sentence Analysis:</strong> Analyzes text sentence by sentence</li>
                             </ul>
                         </div>
                     {/if}
@@ -676,14 +619,14 @@
                 {/if}
 
                 <!-- Line Detection Results -->
-                {#if $lineDetectionResults}
+                {#if $lineDetectionResults && $lineDetectionResults.line_results}
                     <section class="results">
                         <h2 class="results__title">Line Detection Results</h2>
                         <div class="detection-summary">
                             <div class="detection-stats">
                                 <span class="stat">AI Lines: {$lineDetectionResults.statistics.ai_generated_lines}</span>
                                 <span class="stat">Total Lines: {$lineDetectionResults.statistics.total_lines_analyzed}</span>
-                                <span class="stat">AI Percentage: {($lineDetectionResults.statistics.ai_percentage * 100).toFixed(1)}%</span>
+                                <span class="stat">AI Percentage: {$lineDetectionResults.statistics.ai_percentage.toFixed(1)}%</span>
                             </div>
                         </div>
                         
@@ -697,34 +640,6 @@
                                         </span>
                                     </div>
                                     <div class="line-text">{line.text}</div>
-                                </div>
-                            {/each}
-                        </div>
-                    </section>
-                {/if}
-
-                <!-- Sentence Detection Results -->
-                {#if $sentenceDetectionResults}
-                    <section class="results">
-                        <h2 class="results__title">Sentence Detection Results</h2>
-                        <div class="detection-summary">
-                            <div class="detection-stats">
-                                <span class="stat">AI Sentences: {$sentenceDetectionResults.statistics.ai_generated_sentences}</span>
-                                <span class="stat">Total Sentences: {$sentenceDetectionResults.statistics.total_sentences_analyzed}</span>
-                                <span class="stat">AI Percentage: {($sentenceDetectionResults.statistics.ai_percentage * 100).toFixed(1)}%</span>
-                            </div>
-                        </div>
-                        
-                        <div class="sentence-results">
-                            {#each $sentenceDetectionResults.sentence_results as sentence, index}
-                                <div class="sentence-item" class:ai-sentence={sentence.is_ai_generated}>
-                                    <div class="sentence-header">
-                                        <span class="sentence-number"><Hash size={14} />#{index + 1}</span>
-                                        <span class="sentence-prediction" class:ai-detected={sentence.is_ai_generated}>
-                                            {sentence.is_ai_generated ? 'AI' : 'Human'} ({(sentence.ai_probability * 100).toFixed(1)}%)
-                                        </span>
-                                    </div>
-                                    <div class="sentence-text">{sentence.text}</div>
                                 </div>
                             {/each}
                         </div>
@@ -776,41 +691,6 @@
                                 <Copy size={14} />
                                 Copy Highlighted Text
                             </button>
-                        </div>
-                    </section>
-                {/if}
-
-                <!-- New AI Lines Backup Display -->
-                {#if $showAILines && $aiLinesSimple && $aiLinesSimple.length > 0}
-                    <section class="results">
-                        <h2 class="results__title">AI-Generated Lines (Simple List)</h2>
-                        <div class="detection-summary">
-                            <div class="detection-stats">
-                                <span class="stat">Found: {$aiLinesSimple.length} AI lines</span>
-                                <span class="stat">Threshold: {$detectionThreshold}</span>
-                            </div>
-                        </div>
-                        
-                        <div class="ai-lines-simple">
-                            <div class="ai-lines-header">
-                                <h4>Lines identified as AI-generated:</h4>
-                                <button class="copy-btn" on:click={() => copyToClipboard($aiLinesSimple.join('\n'))}>
-                                    <Copy size={14} />
-                                    Copy All AI Lines
-                                </button>
-                            </div>
-                            <div class="ai-lines-list">
-                                {#each $aiLinesSimple as line, index}
-                                    <div class="ai-line-item">
-                                        <div class="ai-line-number"><Hash size={12} />#{index + 1}</div>
-                                        <div class="ai-line-text">{line}</div>
-                                        <button class="copy-btn copy-btn--small" on:click={() => copyToClipboard(line)}>
-                                            <Copy size={12} />
-                                            Copy
-                                        </button>
-                                    </div>
-                                {/each}
-                            </div>
                         </div>
                     </section>
                 {/if}

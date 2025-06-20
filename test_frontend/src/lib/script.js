@@ -38,9 +38,8 @@ export const segmentLength = writable(200);
 export const availableDetectionModels = writable([]);
 export const showDetectionResults = writable(false);
 
-// Enhanced AI Detection features
+// Enhanced AI Detection features - removed sentence-related stores
 export const lineDetectionResults = writable(null);
-export const sentenceDetectionResults = writable(null);
 export const highlightedText = writable('');
 export const detectionFormat = writable('markdown');
 export const useAllDetectionModels = writable(false);
@@ -209,7 +208,6 @@ export function resetResults() {
 export function resetDetectionResults() {
     detectionResults.set(null);
     lineDetectionResults.set(null);
-    sentenceDetectionResults.set(null);
     highlightedText.set('');
     showDetectionResults.set(false);
     error.set(null);
@@ -551,7 +549,20 @@ export async function detectAILines(text, threshold = 0.6, minLineLength = 20) {
 
         if (response.ok) {
             const data = await response.json();
-            lineDetectionResults.set(data);
+            
+            // Fix: Properly transform the data to match frontend expectations
+            const transformedData = {
+                ...data,
+                line_results: data.line_analysis.map(line => ({
+                    line_number: line.line_number,
+                    text: line.line_text,
+                    ai_probability: line.ai_probability,
+                    is_ai_generated: line.is_ai_generated,
+                    confidence: line.confidence
+                }))
+            };
+            
+            lineDetectionResults.set(transformedData);
             
             const aiLinesCount = data.statistics.ai_generated_lines;
             const totalLines = data.statistics.total_lines_analyzed;
@@ -562,43 +573,6 @@ export async function detectAILines(text, threshold = 0.6, minLineLength = 20) {
         }
     } catch (err) {
         logError('detectAILines', err, { inputLength: text.length });
-        error.set(err.message);
-        showToast(err.message, 'error');
-    } finally {
-        isDetecting.set(false);
-    }
-}
-
-// Detect AI sentences in text
-export async function detectAISentences(text, threshold = 0.6) {
-    if (!validateDetectionInput(text)) return;
-
-    isDetecting.set(true);
-    error.set(null);
-
-    try {
-        const response = await fetch(`${API_BASE}/detect_sentences`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                text: text,
-                threshold: threshold
-            })
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            sentenceDetectionResults.set(data);
-            
-            const aiSentencesCount = data.statistics.ai_generated_sentences;
-            const totalSentences = data.statistics.total_sentences_analyzed;
-            showToast(`Sentence detection complete: ${aiSentencesCount}/${totalSentences} sentences detected as AI`);
-        } else {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Sentence detection failed');
-        }
-    } catch (err) {
-        logError('detectAISentences', err, { inputLength: text.length });
         error.set(err.message);
         showToast(err.message, 'error');
     } finally {
@@ -681,30 +655,6 @@ export async function getAILines(text, threshold = 0.6) {
     } catch (err) {
         logError('getAILines', err, { inputLength: text.length, threshold });
         throw err;
-    }
-}
-
-// Get AI sentences (simple)
-export async function getAISentences(text, threshold = 0.6) {
-    try {
-        const response = await fetch(`${API_BASE}/get_ai_sentences_simple`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                text: text,
-                threshold: threshold
-            })
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            return data.ai_sentences;
-        } else {
-            throw new Error('Failed to get AI sentences');
-        }
-    } catch (err) {
-        logError('getAISentences', err);
-        return [];
     }
 }
 

@@ -33,7 +33,6 @@
         
         // Functions
         copyToClipboard, loadBackendInfo, humanizeWithSingleModel,
-        paraphraseWithMultiModels, paraphraseWithAllModels, continueToRewrite,
         loadDetectionModels, detectAIText, humanizeAndCheck,
         
         // Enhanced detection functions
@@ -68,14 +67,6 @@
     // Handler functions that pass the reactive values to the imported functions
     const handleHumanizeWithSingleModel = () => {
         humanizeWithSingleModel($inputText, $selectedModel, $useEnhanced);
-    };
-
-    const handleParaphraseWithMultiModels = () => {
-        paraphraseWithMultiModels($inputText);
-    };
-
-    const handleParaphraseWithAllModels = () => {
-        paraphraseWithAllModels($inputText);
     };
 
     const handleDetectAIText = () => {
@@ -114,10 +105,6 @@
 
     const handleHumanizeAndCheck = () => {
         humanizeAndCheck($inputText, $useEnhanced, $selectedModel, $detectionThreshold);
-    };
-
-    const handleContinueToRewrite = (paraphrasedText, modelUsed = null) => {
-        continueToRewrite(paraphrasedText, modelUsed, $useEnhanced, $inputText);
     };
 
     // Toggle detection model selection
@@ -178,7 +165,7 @@
 </script>
 
 <svelte:head>
-    <title>AI Text Humanizer & Detector</title>
+    <title>VHumanize</title>
     <meta name="description" content="Transform AI-generated text into natural, human-like content and detect AI-generated text" />
 </svelte:head>
 
@@ -192,25 +179,137 @@
 {/if}
 
 <div class="app">
-    <!-- Compact Header -->
-    <header class="header">
-        <div class="header__container">
-            <h1 class="header__title">AI Text Humanizer & Detector</h1>
-            {#if $backendStatus}
-                <div class="status" class:status--connected={$backendStatus.status === 'healthy'}>
-                    <span class="status__dot"></span>
-                    {$backendStatus.status === 'healthy' ? 'Connected' : 'Disconnected'}
-                    {#if $backendStatus.features?.device}
-                        <span class="status__device">({$backendStatus.features.device})</span>
-                    {/if}
+    <!-- Action Navigation Bar with Brand -->
+    <nav class="nav-bar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <h1 class="brand-title">VHumanize</h1>
+                {#if $backendStatus}
+                    <div class="status-dot" class:status-dot--connected={$backendStatus.status === 'healthy'}></div>
+                {/if}
+            </div>
+
+            <div class="nav-sections">
+                <!-- AI Detection Actions -->
+                <div class="nav-section">
+                    <div class="nav-section__title">AI Detection</div>
+                    <div class="nav-buttons">
+                        <button 
+                            class="nav-btn nav-btn--detection" 
+                            on:click={handleDetectAIText} 
+                            disabled={$isDetecting || $isProcessing || !$inputText.trim()}
+                            title="Detect AI content using configured settings"
+                        >
+                            {#if $isDetecting}
+                                <div class="spinner"></div>
+                                Detecting...
+                            {:else}
+                                <Target size={16} />
+                                Smart Detection
+                            {/if}
+                        </button>
+                        
+                        <button 
+                            class="nav-btn nav-btn--detection" 
+                            on:click={handleDetectWithAllModels} 
+                            disabled={$isDetecting || $isProcessing || !$inputText.trim()}
+                            title="Run detection with all available models"
+                        >
+                            <BarChart3 size={16} />
+                            All Models
+                        </button>
+                    </div>
                 </div>
-            {/if}
+
+                <!-- Advanced Analysis -->
+                <div class="nav-section">
+                    <div class="nav-section__title">Advanced Analysis</div>
+                    <div class="nav-buttons">
+                        <button 
+                            class="nav-btn nav-btn--advanced" 
+                            on:click={handleDetectAILines} 
+                            disabled={$isDetecting || $isProcessing || !$inputText.trim()}
+                            title="Analyze each line individually"
+                        >
+                            <FileText size={16} />
+                            Line Analysis
+                        </button>
+                        
+                        <button 
+                            class="nav-btn nav-btn--advanced" 
+                            on:click={handleDetectAISentences} 
+                            disabled={$isDetecting || $isProcessing || !$inputText.trim()}
+                            title="Analyze each sentence individually"
+                        >
+                            <FileEdit size={16} />
+                            Sentence Analysis
+                        </button>
+                        
+                        <button 
+                            class="nav-btn nav-btn--advanced" 
+                            on:click={handleHighlightAIText} 
+                            disabled={$isDetecting || $isProcessing || !$inputText.trim()}
+                            title="Highlight AI-generated portions"
+                        >
+                            <Highlighter size={16} />
+                            Highlight AI
+                        </button>
+                        
+                        <button 
+                            class="nav-btn nav-btn--advanced" 
+                            on:click={handleGetAILines} 
+                            disabled={$isDetecting || $isProcessing || !$inputText.trim()}
+                            title="Get simple list of AI lines"
+                        >
+                            <List size={16} />
+                            List AI Lines
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Text Humanization -->
+                <div class="nav-section">
+                    <div class="nav-section__title">Humanization</div>
+                    <div class="nav-buttons">
+                        <button 
+                            class="nav-btn nav-btn--combined" 
+                            on:click={handleHumanizeAndCheck} 
+                            disabled={$isProcessing || $isDetecting || !$inputText.trim()}
+                            title="Humanize text and verify improvement"
+                        >
+                            {#if $isProcessing && $currentStep === 'humanizing and checking'}
+                                <div class="spinner"></div>
+                                Processing...
+                            {:else}
+                                <Sparkles size={16} />
+                                Humanize & Verify
+                            {/if}
+                        </button>
+                        
+                        <button 
+                            class="nav-btn nav-btn--humanize" 
+                            on:click={handleHumanizeWithSingleModel} 
+                            disabled={$isProcessing || !$inputText.trim()}
+                            title="Standard humanization"
+                        >
+                            {#if $isProcessing && $processingMode === 'single'}
+                                <div class="spinner"></div>
+                                {$currentStep === 'paraphrasing' ? 'Paraphrasing...' : 
+                                 $currentStep === 'rewriting' ? 'Rewriting...' : 'Processing...'}
+                            {:else}
+                                <Target size={16} />
+                                Standard
+                            {/if}
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
-    </header>
+    </nav>
 
     <main class="main">
         <div class="main-container">
-            <!-- Enhanced Left Sidebar (35%) -->
+            <!-- Configuration Sidebar (Only Config Options) -->
             <aside class="sidebar">
                 <!-- Humanization Configuration -->
                 <section class="sidebar-section">
@@ -234,7 +333,6 @@
                                 <li><strong>Step 1:</strong> Paraphrasing - Restructures sentences while keeping meaning</li>
                                 <li><strong>Step 2:</strong> Rewriting - Applies human-like patterns and styles</li>
                                 <li><strong>Enhanced:</strong> Uses advanced prompts for better quality (slower)</li>
-                                <li><strong>Pipeline:</strong> Multiple models process text sequentially</li>
                             </ul>
                         </div>
                     {/if}
@@ -544,208 +642,9 @@
                         </div>
                     {/if}
                 </section>
-
-                <!-- Enhanced Action Buttons with Clear Descriptions -->
-                <section class="sidebar-section">
-                    <h3 class="sidebar-title">Actions</h3>
-                    
-                    <!-- AI Detection Actions -->
-                    <div class="action-group">
-                        <h4 class="action-title">
-                            <Search size={16} class="inline-icon" />AI Detection
-                            <small class="action-description">Analyze text to detect AI-generated content</small>
-                        </h4>
-                        <div class="action-buttons">
-                            <button 
-                                class="btn btn--detection btn--full" 
-                                on:click={handleDetectAIText} 
-                                disabled={$isDetecting || $isProcessing || !$inputText.trim()}
-                                title="Detect AI content using configured settings"
-                            >
-                                {#if $isDetecting}
-                                    <div class="spinner"></div>
-                                    Detecting...
-                                {:else}
-                                    <Target size={16} />
-                                    Smart Detection
-                                {/if}
-                            </button>
-                            <div class="button-description">
-                                Uses your configured detection mode and models to analyze the text.
-                            </div>
-
-                            <button 
-                                class="btn btn--detection btn--full" 
-                                on:click={handleDetectWithAllModels} 
-                                disabled={$isDetecting || $isProcessing || !$inputText.trim()}
-                                title="Run detection with all available models for comparison"
-                            >
-                                <BarChart3 size={16} />
-                                Compare All Models
-                            </button>
-                            <div class="button-description">
-                                Runs all {$availableDetectionModels.length} detection models and shows individual results.
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Advanced Detection -->
-                    <div class="action-group">
-                        <h4 class="action-title">
-                            <TestTube size={16} class="inline-icon" />Advanced Analysis
-                            <small class="action-description">Detailed text analysis with granular results</small>
-                        </h4>
-                        <div class="action-buttons">
-                            <button 
-                                class="btn btn--secondary btn--full" 
-                                on:click={handleDetectAILines} 
-                                disabled={$isDetecting || $isProcessing || !$inputText.trim()}
-                                title="Analyze each line individually"
-                            >
-                                <FileText size={16} />
-                                Line-by-Line Analysis
-                            </button>
-                            <div class="button-description">
-                                Analyzes each line separately to identify which specific lines are AI-generated.
-                            </div>
-
-                            <button 
-                                class="btn btn--secondary btn--full" 
-                                on:click={handleDetectAISentences} 
-                                disabled={$isDetecting || $isProcessing || !$inputText.trim()}
-                                title="Analyze each sentence individually"
-                            >
-                                <FileEdit size={16} />
-                                Sentence-by-Sentence Analysis
-                            </button>
-                            <div class="button-description">
-                                Breaks down text into sentences and analyzes each one for AI patterns.
-                            </div>
-
-                            <button 
-                                class="btn btn--secondary btn--full" 
-                                on:click={handleHighlightAIText} 
-                                disabled={$isDetecting || $isProcessing || !$inputText.trim()}
-                                title="Highlight AI-generated portions in the text"
-                            >
-                                <Highlighter size={16} />
-                                Highlight AI Content
-                            </button>
-                            <div class="button-description">
-                                Visually marks AI-generated portions in {$detectionFormat} format.
-                            </div>
-
-                            <button 
-                                class="btn btn--tertiary btn--full" 
-                                on:click={handleGetAILines} 
-                                disabled={$isDetecting || $isProcessing || !$inputText.trim()}
-                                title="Get simple list of AI lines"
-                            >
-                                <List size={16} />
-                                List AI Lines Only
-                            </button>
-                            <div class="button-description">
-                                Simple backup method to get just the AI-generated lines as a list.
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Humanization Actions -->
-                    <div class="action-group">
-                        <h4 class="action-title">
-                            <Bot size={16} class="inline-icon" /><ArrowRight size={14} class="inline-icon" /><Users size={16} class="inline-icon" />Text Humanization
-                            <small class="action-description">Transform AI text to appear human-written</small>
-                        </h4>
-                        <div class="action-buttons">
-                            <button 
-                                class="btn btn--combined btn--full" 
-                                on:click={handleHumanizeAndCheck} 
-                                disabled={$isProcessing || $isDetecting || !$inputText.trim()}
-                                title="Humanize text and verify the improvement"
-                            >
-                                {#if $isProcessing && $currentStep === 'humanizing and checking'}
-                                    <div class="spinner"></div>
-                                    Processing & Checking...
-                                {:else}
-                                    <Sparkles size={16} />
-                                    Humanize & Verify
-                                {/if}
-                            </button>
-                            <div class="button-description">
-                                Humanizes text and immediately checks if AI detection improved.
-                            </div>
-
-                            <button 
-                                class="btn btn--primary btn--full" 
-                                on:click={handleHumanizeWithSingleModel} 
-                                disabled={$isProcessing || !$inputText.trim()}
-                                title="Standard humanization with selected model"
-                            >
-                                {#if $isProcessing && $processingMode === 'single'}
-                                    <div class="spinner"></div>
-                                    {$currentStep === 'paraphrasing' ? 'Paraphrasing...' : 
-                                     $currentStep === 'rewriting' ? 'Rewriting...' : 'Processing...'}
-                                {:else}
-                                    <Target size={16} />
-                                    Standard Humanization
-                                {/if}
-                            </button>
-                            <div class="button-description">
-                                Two-step process: Paraphrasing + Rewriting with {$selectedModel || 'current model'}.
-                                {$useEnhanced ? 'Enhanced mode enabled.' : 'Standard mode.'}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Pipeline Processing -->
-                    <div class="action-group">
-                        <h4 class="action-title">
-                            <RefreshCw size={16} class="inline-icon" />Pipeline Processing
-                            <small class="action-description">Multi-model sequential processing for maximum effectiveness</small>
-                        </h4>
-                        <div class="action-buttons">
-                            <button 
-                                class="btn btn--secondary btn--full" 
-                                on:click={handleParaphraseWithMultiModels} 
-                                disabled={$isProcessing || !$inputText.trim()}
-                                title="Process with 2 best models sequentially"
-                            >
-                                {#if $isProcessing && $processingMode === 'multi'}
-                                    <div class="spinner"></div>
-                                    Pipeline processing...
-                                {:else}
-                                    <GitBranch size={16} />
-                                    2-Model Pipeline
-                                {/if}
-                            </button>
-                            <div class="button-description">
-                                Uses 2 best-performing models in sequence. Each model processes the previous model's output.
-                            </div>
-
-                            <button 
-                                class="btn btn--secondary btn--full" 
-                                on:click={handleParaphraseWithAllModels} 
-                                disabled={$isProcessing || !$inputText.trim()}
-                                title="Process with all available models sequentially"
-                            >
-                                {#if $isProcessing && $processingMode === 'all'}
-                                    <div class="spinner"></div>
-                                    Full pipeline processing...
-                                {:else}
-                                    <Layers size={16} />
-                                    Full {$availableModels.length}-Model Pipeline
-                                {/if}
-                            </button>
-                            <div class="button-description">
-                                Maximum processing power. All {$availableDetectionModels.length} models process sequentially for ultimate humanization.
-                                Slowest but most thorough.
-                            </div>
-                        </div>
-                    </div>
-                </section>
             </aside>
 
-            <!-- Right Content Area (70%) -->
+            <!-- Right Content Area -->
             <div class="content">
                 <!-- Input Section -->
                 <section class="input-section">
@@ -1075,229 +974,6 @@
                                 </div>
                             </div>
                         </div>
-                    </section>
-                {/if}
-
-                <!-- Pipeline Results -->
-                {#if $showMultiResults && ($multiResults || $allResults)}
-                    <section class="results">
-                        <h2 class="results__title">
-                            {$multiResults ? '2-Model Pipeline Results' : 'Full Pipeline Results'}
-                        </h2>
-                        <p class="results__subtitle">
-                            Pipeline mode: Each model processes the output of the previous model. 
-                            Choose any step's output to continue with rewriting:
-                        </p>
-                        
-                        {#if $multiResults}
-                            <div class="pipeline-summary">
-                                <span class="badge badge--success">
-                                    <CheckCircle size={14} />
-                                    {$multiResults.statistics.successful_steps} successful
-                                </span>
-                                <span class="badge badge--error">
-                                    <XCircle size={14} />
-                                    {$multiResults.statistics.failed_steps} failed
-                                </span>
-                                <span class="badge">Length change: {$multiResults.statistics.total_length_change}</span>
-                                <span class="badge">Mode: {$multiResults.statistics.pipeline_mode}</span>
-                            </div>
-
-                            <div class="pipeline-flow">
-                                <div class="pipeline-step pipeline-step--original">
-                                    <div class="pipeline-step__header">
-                                        <strong>Original Text</strong>
-                                        <div class="pipeline-step__actions">
-                                            <button class="copy-btn" on:click={() => copyToClipboard($multiResults.original_text)}>
-                                                <Copy size={14} />
-                                                Copy
-                                            </button>
-                                            <button 
-                                                class="btn btn--primary btn--small" 
-                                                on:click={() => handleContinueToRewrite($multiResults.original_text, 'original')}
-                                                disabled={$isProcessing}
-                                            >
-                                                <Play size={14} />
-                                                Skip to Rewrite
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="pipeline-step__text">
-                                        {$multiResults.original_text}
-                                    </div>
-                                    <div class="pipeline-step__meta">
-                                        {$multiResults.statistics.original_length} chars
-                                    </div>
-                                </div>
-
-                                {#each $multiResults.pipeline_results as result, index}
-                                    <div class="pipeline-arrow">
-                                        <ArrowDown size={16} />
-                                        Model {result.step}: {result.model}
-                                    </div>
-                                    
-                                    <div class="pipeline-step" class:pipeline-step--failed={!result.success} class:pipeline-step--final={index === $multiResults.pipeline_results.length - 1}>
-                                        <div class="pipeline-step__header">
-                                            <strong>
-                                                <span class="status-dot" class:success={result.success} class:failed={!result.success}>
-                                                    {#if result.success}
-                                                        <CheckCircle size={12} />
-                                                    {:else}
-                                                        <XCircle size={12} />
-                                                    {/if}
-                                                </span>
-                                                Step {result.step} Output
-                                                {#if index === $multiResults.pipeline_results.length - 1}
-                                                    <span class="final-badge">FINAL</span>
-                                                {/if}
-                                            </strong>
-                                            {#if result.success}
-                                                <div class="pipeline-step__actions">
-                                                    <button class="copy-btn" on:click={() => copyToClipboard(result.output_text)}>
-                                                        <Copy size={14} />
-                                                        Copy
-                                                    </button>
-                                                    <button 
-                                                        class="btn btn--primary btn--small" 
-                                                        on:click={() => handleContinueToRewrite(result.output_text, result.model)}
-                                                        disabled={$isProcessing}
-                                                    >
-                                                        <ArrowRight size={14} />
-                                                        Continue to Rewrite
-                                                    </button>
-                                                </div>
-                                            {/if}
-                                        </div>
-                                        <div class="pipeline-step__text">
-                                            {result.output_text}
-                                        </div>
-                                        {#if result.success}
-                                            <div class="pipeline-step__meta">
-                                                {result.output_length} chars 
-                                                <span class:positive={result.length_change > 0} class:negative={result.length_change < 0}>
-                                                    ({result.length_change > 0 ? '+' : ''}{result.length_change})
-                                                </span>
-                                            </div>
-                                        {:else if result.error}
-                                            <div class="pipeline-step__error">
-                                                <AlertCircle size={14} />
-                                                Error: {result.error}
-                                            </div>
-                                        {/if}
-                                    </div>
-                                {/each}
-                            </div>
-                        {/if}
-
-                        {#if $allResults}
-                            <div class="pipeline-summary">
-                                <span class="badge badge--success">
-                                    <CheckCircle size={14} />
-                                    {$allResults.statistics.successful_steps} successful
-                                </span>
-                                <span class="badge badge--error">
-                                    <XCircle size={14} />
-                                    {$allResults.statistics.failed_steps} failed
-                                </span>
-                                <span class="badge">
-                                    <Clock size={14} />
-                                    {$allResults.statistics.total_processing_time}s total
-                                </span>
-                                <span class="badge">Length change: {$allResults.statistics.total_length_change}</span>
-                                <span class="badge">Mode: {$allResults.statistics.pipeline_mode}</span>
-                            </div>
-
-                            <div class="pipeline-flow">
-                                <div class="pipeline-step pipeline-step--original">
-                                    <div class="pipeline-step__header">
-                                        <strong>Original Text</strong>
-                                        <div class="pipeline-step__actions">
-                                            <button class="copy-btn" on:click={() => copyToClipboard($allResults.original_text)}>
-                                                <Copy size={14} />
-                                                Copy
-                                            </button>
-                                            <button 
-                                                class="btn btn--primary btn--small" 
-                                                on:click={() => handleContinueToRewrite($allResults.original_text, 'original')}
-                                                disabled={$isProcessing}
-                                            >
-                                                <Play size={14} />
-                                                Skip to Rewrite
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="pipeline-step__text">
-                                        {$allResults.original_text}
-                                    </div>
-                                    <div class="pipeline-step__meta">
-                                        {$allResults.statistics.original_length} chars
-                                    </div>
-                                </div>
-
-                                {#each $allResults.pipeline_results as result, index}
-                                    <div class="pipeline-arrow">
-                                        <ArrowDown size={16} />
-                                        Model {result.step}: {result.model}
-                                        {#if result.processing_time}
-                                            <small>
-                                                <Clock size={12} />
-                                                ({result.processing_time}s)
-                                            </small>
-                                        {/if}
-                                    </div>
-                                    
-                                    <div class="pipeline-step" class:pipeline-step--failed={!result.success} class:pipeline-step--final={index === $allResults.pipeline_results.length - 1}>
-                                        <div class="pipeline-step__header">
-                                            <strong>
-                                                <span class="status-dot" class:success={result.success} class:failed={!result.success}>
-                                                    {#if result.success}
-                                                        <CheckCircle size={12} />
-                                                    {:else}
-                                                        <XCircle size={12} />
-                                                    {/if}
-                                                </span>
-                                                Step {result.step} Output
-                                                {#if index === $allResults.pipeline_results.length - 1}
-                                                    <span class="final-badge">FINAL</span>
-                                                {/if}
-                                            </strong>
-                                            {#if result.success}
-                                                <div class="pipeline-step__actions">
-                                                    <button class="copy-btn" on:click={() => copyToClipboard(result.output_text)}>
-                                                        <Copy size={14} />
-                                                        Copy
-                                                    </button>
-                                                    <button 
-                                                        class="btn btn--primary btn--small" 
-                                                        on:click={() => handleContinueToRewrite(result.output_text, result.model)}
-                                                        disabled={$isProcessing}
-                                                    >
-                                                        <ArrowRight size={14} />
-                                                        Continue to Rewrite
-                                                    </button>
-                                                </div>
-                                            {/if}
-                                        </div>
-                                        <div class="pipeline-step__text">
-                                            {result.output_text}
-                                        </div>
-                                        {#if result.success}
-                                            <div class="pipeline-step__meta">
-                                                {result.output_length} chars 
-                                                <span class:positive={result.length_change > 0} class:negative={result.length_change < 0}>
-                                                    ({result.length_change > 0 ? '+' : ''}{result.length_change})
-                                                </span>
-                                            </div>
-                                        {:else if result.error}
-                                            <div class="pipeline-step__error">
-                                                <AlertCircle size={14} />
-                                                Error: {result.error}
-                                            </div>
-                                        {/if}
-                                    </div>
-                                {/each}
-                            </div>
-                        {/if}
                     </section>
                 {/if}
 

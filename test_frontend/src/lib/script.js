@@ -841,3 +841,101 @@ export async function getDetailedAILines(text, threshold = 0.6, minLineLength = 
 
 // Initialize detection models on startup
 loadDetectionModels();
+
+// Updated humanization model management - synced with backend paraphraser.py
+export function getHumanizationModelInfo() {
+    return {
+        "humarin/chatgpt_paraphraser_on_T5_base": {
+            name: "ChatGPT Paraphraser T5",
+            description: "Specialized for ChatGPT-style content paraphrasing",
+            type: "specialized",
+            speed: "★★★☆☆",
+            accuracy: "★★★★★",
+            performance_rank: 1,
+            speed_rank: 3,
+            accuracy_rank: 1,
+            requires_sentencepiece: true
+        },
+        "Vamsi/T5_Paraphrase_Paws": {
+            name: "T5 Paraphrase PAWS",
+            description: "High-quality paraphrasing with diverse outputs",
+            type: "paraphrase",
+            speed: "★★★☆☆",
+            accuracy: "★★★★☆",
+            performance_rank: 2,
+            speed_rank: 4,
+            accuracy_rank: 2,
+            requires_sentencepiece: true
+        },
+        "facebook/bart-large": {
+            name: "BART Large",
+            description: "Powerful sequence-to-sequence model for text generation",
+            type: "large",
+            speed: "★★☆☆☆",
+            accuracy: "★★★★☆",
+            performance_rank: 3,
+            speed_rank: 6,
+            accuracy_rank: 3,
+            requires_sentencepiece: false
+        },
+        "tuner007/pegasus_paraphrase": {
+            name: "Pegasus Paraphrase",
+            description: "Abstractive summarization-based paraphrasing",
+            type: "abstractive",
+            speed: "★★★★☆",
+            accuracy: "★★★☆☆",
+            performance_rank: 4,
+            speed_rank: 2,
+            accuracy_rank: 5,
+            requires_sentencepiece: false
+        },
+        "facebook/bart-base": {
+            name: "BART Base",
+            description: "Fast and efficient text generation model",
+            type: "base",
+            speed: "★★★★☆",
+            accuracy: "★★★☆☆",
+            performance_rank: 5,
+            speed_rank: 2,
+            accuracy_rank: 4,
+            requires_sentencepiece: false
+        },
+        "t5-base": {
+            name: "T5 Base",
+            description: "General-purpose text-to-text transformer",
+            type: "general",
+            speed: "★★★★☆",
+            accuracy: "★★★☆☆",
+            performance_rank: 6,
+            speed_rank: 2,
+            accuracy_rank: 6,
+            requires_sentencepiece: true
+        },
+        "t5-small": {
+            name: "T5 Small",
+            description: "Lightweight T5 model for basic paraphrasing",
+            type: "lightweight",
+            speed: "★★★★★",
+            accuracy: "★★☆☆☆",
+            performance_rank: 7,
+            speed_rank: 1,
+            accuracy_rank: 7,
+            requires_sentencepiece: true
+        }
+    };
+}
+
+// Updated recommendation function for humanization models
+export function getRecommendedHumanizationModel(type = 'performance') {
+    const recommendations = {
+        performance: 'humarin/chatgpt_paraphraser_on_T5_base',
+        speed: 't5-small',
+        accuracy: 'humarin/chatgpt_paraphraser_on_T5_base',
+        general: 'Vamsi/T5_Paraphrase_Paws',
+        quality: 'humarin/chatgpt_paraphraser_on_T5_base',
+        fast: 'facebook/bart-base',
+        balanced: 'Vamsi/T5_Paraphrase_Paws'
+    };
+    
+    return recommendations[type] || 'humarin/chatgpt_paraphraser_on_T5_base';
+}

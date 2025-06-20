@@ -41,7 +41,10 @@
         getDetectionModelInfo, getRecommendedDetectionModel,
         
         // Add the missing function
-        validateDetectionInput, showToast
+        validateDetectionInput, showToast,
+        
+        // Import the new humanization model info function
+        getHumanizationModelInfo, getRecommendedHumanizationModel
     } from '$lib/script.js';
 
     // New stores for enhanced configuration
@@ -51,6 +54,9 @@
     const showDetectionHelp = writable(false);
     const showHumanizationHelp = writable(false);
 
+    // Remove the selectedHumanizationModels store since we don't need it for radio buttons
+    // const selectedHumanizationModels = writable([]);
+
     // Derived stores for computed values
     const characterCount = derived(inputText, $inputText => $inputText.length);
     const wordCount = derived(inputText, $inputText => 
@@ -59,6 +65,8 @@
 
     // Get detection model info
     const detectionModelInfo = getDetectionModelInfo();
+    // Get humanization model info
+    const humanizationModelInfo = getHumanizationModelInfo();
 
     // Handler functions that pass the reactive values to the imported functions
     const handleHumanizeWithSingleModel = () => {
@@ -110,10 +118,10 @@
         });
     };
 
-    // Set recommended detection models
-    const setRecommendedModels = (criteria) => {
-        const recommended = getRecommendedDetectionModel(criteria);
-        selectedDetectionModels.set([recommended]);
+    // Simplify the recommendation functions
+    const setRecommendedHumanizationModels = (criteria) => {
+        const recommended = getRecommendedHumanizationModel(criteria);
+        selectedModel.set(recommended);
     };
 
     onMount(() => {
@@ -122,6 +130,8 @@
             loadDetectionModels();
             // Set default selected detection model
             selectedDetectionModels.set([getRecommendedDetectionModel('performance')]);
+            // Set default selected humanization model - much simpler!
+            selectedModel.set(getRecommendedHumanizationModel('performance'));
         } catch (err) {
             console.error('Failed to initialize:', err);
         }
@@ -299,16 +309,62 @@
                             <label class="config-label">
                                 Humanization Model:
                                 <small class="config-description">
-                                    Model used for text transformation. Different models have varying writing styles.
+                                    Choose a specific model for humanization. Different models have varying writing styles and capabilities.
                                 </small>
                             </label>
-                            <select bind:value={$selectedModel} class="config-select">
-                                {#each $availableModels as model}
-                                    <option value={model}>
-                                        {model} {model === $currentModel ? '(loaded)' : ''}
-                                    </option>
-                                {/each}
-                            </select>
+                            
+                            <div class="model-selection">
+                                <div class="quick-select">
+                                    <button 
+                                        class="btn btn--small btn--secondary" 
+                                        on:click={() => setRecommendedHumanizationModels('performance')}
+                                    >
+                                        Best Performance
+                                    </button>
+                                    <button 
+                                        class="btn btn--small btn--secondary" 
+                                        on:click={() => setRecommendedHumanizationModels('speed')}
+                                    >
+                                        Fastest
+                                    </button>
+                                    <button 
+                                        class="btn btn--small btn--secondary" 
+                                        on:click={() => setRecommendedHumanizationModels('balanced')}
+                                    >
+                                        Balanced
+                                    </button>
+                                </div>
+
+                                <div class="model-checkboxes">
+                                    {#each $availableModels as model}
+                                        <label class="model-checkbox">
+                                            <input 
+                                                type="radio" 
+                                                name="humanization-model"
+                                                value={model}
+                                                bind:group={$selectedModel}
+                                            />
+                                            <div class="model-checkbox__content">
+                                                <div class="model-checkbox__name">
+                                                    {humanizationModelInfo[model]?.name || model}
+                                                </div>
+                                                <div class="model-checkbox__meta">
+                                                    <span class="model-type">{humanizationModelInfo[model]?.type}</span>
+                                                    <span class="model-speed">Speed: {humanizationModelInfo[model]?.speed}</span>
+                                                    <span class="model-accuracy">Acc: {humanizationModelInfo[model]?.accuracy}</span>
+                                                </div>
+                                                <div class="model-checkbox__description">
+                                                    {humanizationModelInfo[model]?.description}
+                                                </div>
+                                            </div>
+                                        </label>
+                                    {/each}
+                                </div>
+                                
+                                <div class="selection-summary">
+                                    Selected: {humanizationModelInfo[$selectedModel]?.name || $selectedModel || 'None'}
+                                </div>
+                            </div>
                         </div>
                     {/if}
                 </section>
@@ -918,6 +974,131 @@
         display: inline-block;
         vertical-align: middle;
         margin-right: 0.25rem;
+    }
+    
+    /* Enhanced model selection styles */
+    .model-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        margin-left: 8px;
+    }
+    
+    .model-badge--t5 {
+        background: #e3f2fd;
+        color: #1565c0;
+    }
+    
+    .model-badge--transformer {
+        background: #f3e5f5;
+        color: #7b1fa2;
+    }
+    
+    .model-ratings {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin: 8px 0;
+    }
+    
+    .model-rating {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+    }
+    
+    .rating-label {
+        font-weight: 500;
+        color: var(--text-secondary);
+    }
+    
+    .rating-stars {
+        font-family: monospace;
+        color: #ffc107;
+        font-size: 11px;
+        letter-spacing: 1px;
+    }
+    
+    .model-type-badge {
+        background: var(--surface-2);
+        color: var(--text-secondary);
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 10px;
+        font-weight: 500;
+        text-transform: capitalize;
+    }
+    
+    .model-status {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 10px;
+    }
+    
+    .model-status--loaded {
+        background: #e8f5e8;
+        color: #2e7d32;
+    }
+    
+    .model-status--available {
+        background: #fff3e0;
+        color: #ef6c00;
+    }
+    
+    .model-recommendation {
+        margin-top: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--accent);
+        text-align: center;
+        padding: 4px;
+        background: var(--accent-bg);
+        border-radius: 4px;
+    }
+    
+    .selection-summary {
+        margin-top: 16px;
+        padding: 12px;
+        background: var(--surface-1);
+        border-radius: 8px;
+        border: 1px solid var(--border);
+    }
+    
+    .selected-model {
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+    
+    .selected-model-details {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
+    
+    .detail-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .quick-select {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+    
+    .quick-select .btn {
+        font-size: 12px;
+        padding: 6px 8px;
+        white-space: nowrap;
     }
 </style>
 

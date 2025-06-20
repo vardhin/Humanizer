@@ -3,6 +3,18 @@
     import { derived } from 'svelte/store';
     import '$lib/style.css';
     
+    // Import Lucide icons
+    import { 
+        Search, Target, BarChart3, CheckSquare, Star, FileText,
+        Zap, Users, Bot, ArrowRight, Copy, RefreshCw, Eye,
+        Settings, HelpCircle, Lightbulb, Play, ChevronDown,
+        ChevronRight, AlertTriangle, CheckCircle, XCircle,
+        ArrowDown, Hash, FileEdit, Highlighter, List,
+        Sparkles, GitBranch, Layers, TestTube, Activity,
+        TrendingUp, Clock, Gauge, Shield, Info, AlertCircle,
+        FileOutput
+    } from 'lucide-svelte';
+    
     // Import all the stores and functions from the external script
     import {
         // Stores
@@ -210,14 +222,14 @@
                                 on:click={() => showHumanizationHelp.update(v => !v)}
                                 title="Show help"
                             >
-                                ?
+                                <HelpCircle size={12} />
                             </button>
                         </h3>
                     </div>
 
                     {#if $showHumanizationHelp}
                         <div class="help-panel">
-                            <h4>How Humanization Works:</h4>
+                            <h4><Lightbulb size={16} class="inline-icon" />How Humanization Works:</h4>
                             <ul class="help-list">
                                 <li><strong>Step 1:</strong> Paraphrasing - Restructures sentences while keeping meaning</li>
                                 <li><strong>Step 2:</strong> Rewriting - Applies human-like patterns and styles</li>
@@ -269,14 +281,14 @@
                                 on:click={() => showDetectionHelp.update(v => !v)}
                                 title="Show help"
                             >
-                                ?
+                                <HelpCircle size={12} />
                             </button>
                         </h3>
                     </div>
 
                     {#if $showDetectionHelp}
                         <div class="help-panel">
-                            <h4>Detection Modes Explained:</h4>
+                            <h4><TestTube size={16} class="inline-icon" />Detection Modes Explained:</h4>
                             <ul class="help-list">
                                 <li><strong>Ensemble:</strong> Combines multiple models for better accuracy</li>
                                 <li><strong>Single Model:</strong> Uses one specific detection model</li>
@@ -299,9 +311,9 @@
                             <option value="ensemble">🎯 Ensemble Detection (Recommended)</option>
                             <option value="single">🔍 Single Model Detection</option>
                             <option value="all_models">📊 All Models Comparison</option>
-                            <option value="selected">✅ Selected Models Only</option>
+                            <option value="selected">☑️ Selected Models Only</option>
                             <option value="top_models">⭐ Top N Models</option>
-                            <option value="segments">📝 Segment Analysis</option>
+                            <option value="segments">📄 Segment Analysis</option>
                         </select>
                     </div>
 
@@ -433,7 +445,7 @@
                                 </small>
                             </label>
                             <select bind:value={$detectionCriteria} class="config-select">
-                                <option value="performance">🏆 Best Overall Performance</option>
+                                <option value="performance">📈 Best Overall Performance</option>
                                 <option value="speed">⚡ Fastest Processing</option>
                                 <option value="accuracy">🎯 Highest Accuracy</option>
                             </select>
@@ -470,7 +482,12 @@
                             class="btn btn--text btn--small" 
                             on:click={() => showAdvancedConfig.update(v => !v)}
                         >
-                            {$showAdvancedConfig ? '▼' : '▶'} Advanced Options
+                            {#if $showAdvancedConfig}
+                                <ChevronDown size={14} />
+                            {:else}
+                                <ChevronRight size={14} />
+                            {/if}
+                            Advanced Options
                         </button>
                     </div>
 
@@ -519,9 +536,9 @@
                                     </small>
                                 </label>
                                 <select bind:value={$detectionFormat} class="config-select">
-                                    <option value="markdown">📝 Markdown (** bold **)</option>
-                                    <option value="html">🌐 HTML (&lt;mark&gt; tags)</option>
-                                    <option value="plain">📄 Plain Text (brackets)</option>
+                                    <option value="markdown">📄 Markdown (** bold **)</option>
+                                    <option value="html">👁️ HTML (&lt;mark&gt; tags)</option>
+                                    <option value="plain">📤 Plain Text (brackets)</option>
                                 </select>
                             </div>
                         </div>
@@ -535,7 +552,7 @@
                     <!-- AI Detection Actions -->
                     <div class="action-group">
                         <h4 class="action-title">
-                            🔍 AI Detection
+                            <Search size={16} class="inline-icon" />AI Detection
                             <small class="action-description">Analyze text to detect AI-generated content</small>
                         </h4>
                         <div class="action-buttons">
@@ -549,7 +566,8 @@
                                     <div class="spinner"></div>
                                     Detecting...
                                 {:else}
-                                    🎯 Smart Detection
+                                    <Target size={16} />
+                                    Smart Detection
                                 {/if}
                             </button>
                             <div class="button-description">
@@ -562,7 +580,8 @@
                                 disabled={$isDetecting || $isProcessing || !$inputText.trim()}
                                 title="Run detection with all available models for comparison"
                             >
-                                📊 Compare All Models
+                                <BarChart3 size={16} />
+                                Compare All Models
                             </button>
                             <div class="button-description">
                                 Runs all {$availableDetectionModels.length} detection models and shows individual results.
@@ -573,7 +592,7 @@
                     <!-- Advanced Detection -->
                     <div class="action-group">
                         <h4 class="action-title">
-                            🔬 Advanced Analysis
+                            <TestTube size={16} class="inline-icon" />Advanced Analysis
                             <small class="action-description">Detailed text analysis with granular results</small>
                         </h4>
                         <div class="action-buttons">
@@ -583,7 +602,8 @@
                                 disabled={$isDetecting || $isProcessing || !$inputText.trim()}
                                 title="Analyze each line individually"
                             >
-                                📝 Line-by-Line Analysis
+                                <FileText size={16} />
+                                Line-by-Line Analysis
                             </button>
                             <div class="button-description">
                                 Analyzes each line separately to identify which specific lines are AI-generated.
@@ -595,7 +615,8 @@
                                 disabled={$isDetecting || $isProcessing || !$inputText.trim()}
                                 title="Analyze each sentence individually"
                             >
-                                🔤 Sentence-by-Sentence Analysis
+                                <FileEdit size={16} />
+                                Sentence-by-Sentence Analysis
                             </button>
                             <div class="button-description">
                                 Breaks down text into sentences and analyzes each one for AI patterns.
@@ -607,7 +628,8 @@
                                 disabled={$isDetecting || $isProcessing || !$inputText.trim()}
                                 title="Highlight AI-generated portions in the text"
                             >
-                                🖍️ Highlight AI Content
+                                <Highlighter size={16} />
+                                Highlight AI Content
                             </button>
                             <div class="button-description">
                                 Visually marks AI-generated portions in {$detectionFormat} format.
@@ -619,7 +641,8 @@
                                 disabled={$isDetecting || $isProcessing || !$inputText.trim()}
                                 title="Get simple list of AI lines"
                             >
-                                📋 List AI Lines Only
+                                <List size={16} />
+                                List AI Lines Only
                             </button>
                             <div class="button-description">
                                 Simple backup method to get just the AI-generated lines as a list.
@@ -630,7 +653,7 @@
                     <!-- Humanization Actions -->
                     <div class="action-group">
                         <h4 class="action-title">
-                            🤖➡️👤 Text Humanization
+                            <Bot size={16} class="inline-icon" /><ArrowRight size={14} class="inline-icon" /><Users size={16} class="inline-icon" />Text Humanization
                             <small class="action-description">Transform AI text to appear human-written</small>
                         </h4>
                         <div class="action-buttons">
@@ -644,7 +667,8 @@
                                     <div class="spinner"></div>
                                     Processing & Checking...
                                 {:else}
-                                    ✨ Humanize & Verify
+                                    <Sparkles size={16} />
+                                    Humanize & Verify
                                 {/if}
                             </button>
                             <div class="button-description">
@@ -662,7 +686,8 @@
                                     {$currentStep === 'paraphrasing' ? 'Paraphrasing...' : 
                                      $currentStep === 'rewriting' ? 'Rewriting...' : 'Processing...'}
                                 {:else}
-                                    🎯 Standard Humanization
+                                    <Target size={16} />
+                                    Standard Humanization
                                 {/if}
                             </button>
                             <div class="button-description">
@@ -675,7 +700,7 @@
                     <!-- Pipeline Processing -->
                     <div class="action-group">
                         <h4 class="action-title">
-                            🔄 Pipeline Processing
+                            <RefreshCw size={16} class="inline-icon" />Pipeline Processing
                             <small class="action-description">Multi-model sequential processing for maximum effectiveness</small>
                         </h4>
                         <div class="action-buttons">
@@ -689,7 +714,8 @@
                                     <div class="spinner"></div>
                                     Pipeline processing...
                                 {:else}
-                                    🥈 2-Model Pipeline
+                                    <GitBranch size={16} />
+                                    2-Model Pipeline
                                 {/if}
                             </button>
                             <div class="button-description">
@@ -706,11 +732,12 @@
                                     <div class="spinner"></div>
                                     Full pipeline processing...
                                 {:else}
-                                    🥇 Full {$availableModels.length}-Model Pipeline
+                                    <Layers size={16} />
+                                    Full {$availableModels.length}-Model Pipeline
                                 {/if}
                             </button>
                             <div class="button-description">
-                                Maximum processing power. All {$availableModels.length} models process sequentially for ultimate humanization.
+                                Maximum processing power. All {$availableDetectionModels.length} models process sequentially for ultimate humanization.
                                 Slowest but most thorough.
                             </div>
                         </div>
@@ -723,7 +750,10 @@
                 <!-- Input Section -->
                 <section class="input-section">
                     <div class="input-header">
-                        <label class="input-label">Enter AI-generated text to humanize</label>
+                        <label class="input-label">
+                            <FileEdit size={18} class="inline-icon" />
+                            Enter AI-generated text to humanize
+                        </label>
                         <div class="stats">
                             {$characterCount} / 50,000 chars • {$wordCount} words
                         </div>
@@ -741,7 +771,7 @@
                 <!-- Error Display -->
                 {#if $error}
                     <div class="error">
-                        <span class="error__icon">⚠</span>
+                        <AlertTriangle size={16} class="error__icon" />
                         {$error}
                     </div>
                 {/if}
@@ -790,7 +820,7 @@
                             {#each $sentenceDetectionResults.sentence_results as sentence, index}
                                 <div class="sentence-item" class:ai-sentence={sentence.is_ai_generated}>
                                     <div class="sentence-header">
-                                        <span class="sentence-number">#{index + 1}</span>
+                                        <span class="sentence-number"><Hash size={14} />#{index + 1}</span>
                                         <span class="sentence-prediction" class:ai-detected={sentence.is_ai_generated}>
                                             {sentence.is_ai_generated ? 'AI' : 'Human'} ({(sentence.ai_probability * 100).toFixed(1)}%)
                                         </span>
@@ -844,6 +874,7 @@
                         </div>
                         <div class="highlight-actions">
                             <button class="copy-btn" on:click={() => copyToClipboard($highlightedText)}>
+                                <Copy size={14} />
                                 Copy Highlighted Text
                             </button>
                         </div>
@@ -865,15 +896,17 @@
                             <div class="ai-lines-header">
                                 <h4>Lines identified as AI-generated:</h4>
                                 <button class="copy-btn" on:click={() => copyToClipboard($aiLinesSimple.join('\n'))}>
+                                    <Copy size={14} />
                                     Copy All AI Lines
                                 </button>
                             </div>
                             <div class="ai-lines-list">
                                 {#each $aiLinesSimple as line, index}
                                     <div class="ai-line-item">
-                                        <div class="ai-line-number">#{index + 1}</div>
+                                        <div class="ai-line-number"><Hash size={12} />#{index + 1}</div>
                                         <div class="ai-line-text">{line}</div>
                                         <button class="copy-btn copy-btn--small" on:click={() => copyToClipboard(line)}>
+                                            <Copy size={12} />
                                             Copy
                                         </button>
                                     </div>
@@ -894,7 +927,10 @@
                                     {$detectionResults.prediction || ($detectionResults.is_ai_generated ? 'AI-Generated' : 'Human-Written')}
                                 </div>
                                 <div class="confidence-meter">
-                                    <div class="confidence-label">Confidence: {($detectionResults.confidence || $detectionResults.ai_probability || 0).toFixed(3)}</div>
+                                    <div class="confidence-label">
+                                        <Gauge size={14} />
+                                        Confidence: {($detectionResults.confidence || $detectionResults.ai_probability || 0).toFixed(3)}
+                                    </div>
                                     <div class="confidence-bar">
                                         <div 
                                             class="confidence-fill" 
@@ -946,7 +982,7 @@
                                     {#each $detectionResults.segment_results as segment, index}
                                         <div class="segment-item">
                                             <div class="segment-header">
-                                                <span class="segment-number">#{index + 1}</span>
+                                                <span class="segment-number"><Hash size={14} />#{index + 1}</span>
                                                 <span class="segment-prediction" class:ai-segment={segment.is_ai_generated}>
                                                     {segment.prediction} ({(segment.ai_probability * 100).toFixed(1)}%)
                                                 </span>
@@ -969,7 +1005,13 @@
                         
                         <div class="combined-summary">
                             <div class="improvement-badge" class:improved={$combinedResults.improvement.detection_improved} class:not-improved={!$combinedResults.improvement.detection_improved}>
-                                {$combinedResults.improvement.detection_improved ? 'Detection Improved! ✓' : 'No Improvement ✗'}
+                                {#if $combinedResults.improvement.detection_improved}
+                                    <CheckCircle size={16} />
+                                    Detection Improved!
+                                {:else}
+                                    <XCircle size={16} />
+                                    No Improvement
+                                {/if}
                             </div>
                             
                             <div class="improvement-stats">
@@ -1010,6 +1052,7 @@
                                     <div class="text-header">
                                         <h4>Original Text</h4>
                                         <button class="copy-btn" on:click={() => copyToClipboard($combinedResults.original_text)}>
+                                            <Copy size={14} />
                                             Copy
                                         </button>
                                     </div>
@@ -1022,6 +1065,7 @@
                                     <div class="text-header">
                                         <h4>Humanized Text</h4>
                                         <button class="copy-btn copy-btn--primary" on:click={() => copyToClipboard($combinedResults.humanized_text)}>
+                                            <Copy size={14} />
                                             Copy
                                         </button>
                                     </div>
@@ -1047,8 +1091,14 @@
                         
                         {#if $multiResults}
                             <div class="pipeline-summary">
-                                <span class="badge badge--success">{$multiResults.statistics.successful_steps} successful</span>
-                                <span class="badge badge--error">{$multiResults.statistics.failed_steps} failed</span>
+                                <span class="badge badge--success">
+                                    <CheckCircle size={14} />
+                                    {$multiResults.statistics.successful_steps} successful
+                                </span>
+                                <span class="badge badge--error">
+                                    <XCircle size={14} />
+                                    {$multiResults.statistics.failed_steps} failed
+                                </span>
                                 <span class="badge">Length change: {$multiResults.statistics.total_length_change}</span>
                                 <span class="badge">Mode: {$multiResults.statistics.pipeline_mode}</span>
                             </div>
@@ -1059,6 +1109,7 @@
                                         <strong>Original Text</strong>
                                         <div class="pipeline-step__actions">
                                             <button class="copy-btn" on:click={() => copyToClipboard($multiResults.original_text)}>
+                                                <Copy size={14} />
                                                 Copy
                                             </button>
                                             <button 
@@ -1066,6 +1117,7 @@
                                                 on:click={() => handleContinueToRewrite($multiResults.original_text, 'original')}
                                                 disabled={$isProcessing}
                                             >
+                                                <Play size={14} />
                                                 Skip to Rewrite
                                             </button>
                                         </div>
@@ -1079,12 +1131,21 @@
                                 </div>
 
                                 {#each $multiResults.pipeline_results as result, index}
-                                    <div class="pipeline-arrow">↓ Model {result.step}: {result.model}</div>
+                                    <div class="pipeline-arrow">
+                                        <ArrowDown size={16} />
+                                        Model {result.step}: {result.model}
+                                    </div>
                                     
                                     <div class="pipeline-step" class:pipeline-step--failed={!result.success} class:pipeline-step--final={index === $multiResults.pipeline_results.length - 1}>
                                         <div class="pipeline-step__header">
                                             <strong>
-                                                <span class="status-dot" class:success={result.success} class:failed={!result.success}></span>
+                                                <span class="status-dot" class:success={result.success} class:failed={!result.success}>
+                                                    {#if result.success}
+                                                        <CheckCircle size={12} />
+                                                    {:else}
+                                                        <XCircle size={12} />
+                                                    {/if}
+                                                </span>
                                                 Step {result.step} Output
                                                 {#if index === $multiResults.pipeline_results.length - 1}
                                                     <span class="final-badge">FINAL</span>
@@ -1093,6 +1154,7 @@
                                             {#if result.success}
                                                 <div class="pipeline-step__actions">
                                                     <button class="copy-btn" on:click={() => copyToClipboard(result.output_text)}>
+                                                        <Copy size={14} />
                                                         Copy
                                                     </button>
                                                     <button 
@@ -1100,6 +1162,7 @@
                                                         on:click={() => handleContinueToRewrite(result.output_text, result.model)}
                                                         disabled={$isProcessing}
                                                     >
+                                                        <ArrowRight size={14} />
                                                         Continue to Rewrite
                                                     </button>
                                                 </div>
@@ -1117,6 +1180,7 @@
                                             </div>
                                         {:else if result.error}
                                             <div class="pipeline-step__error">
+                                                <AlertCircle size={14} />
                                                 Error: {result.error}
                                             </div>
                                         {/if}
@@ -1127,9 +1191,18 @@
 
                         {#if $allResults}
                             <div class="pipeline-summary">
-                                <span class="badge badge--success">{$allResults.statistics.successful_steps} successful</span>
-                                <span class="badge badge--error">{$allResults.statistics.failed_steps} failed</span>
-                                <span class="badge">{$allResults.statistics.total_processing_time}s total</span>
+                                <span class="badge badge--success">
+                                    <CheckCircle size={14} />
+                                    {$allResults.statistics.successful_steps} successful
+                                </span>
+                                <span class="badge badge--error">
+                                    <XCircle size={14} />
+                                    {$allResults.statistics.failed_steps} failed
+                                </span>
+                                <span class="badge">
+                                    <Clock size={14} />
+                                    {$allResults.statistics.total_processing_time}s total
+                                </span>
                                 <span class="badge">Length change: {$allResults.statistics.total_length_change}</span>
                                 <span class="badge">Mode: {$allResults.statistics.pipeline_mode}</span>
                             </div>
@@ -1140,6 +1213,7 @@
                                         <strong>Original Text</strong>
                                         <div class="pipeline-step__actions">
                                             <button class="copy-btn" on:click={() => copyToClipboard($allResults.original_text)}>
+                                                <Copy size={14} />
                                                 Copy
                                             </button>
                                             <button 
@@ -1147,6 +1221,7 @@
                                                 on:click={() => handleContinueToRewrite($allResults.original_text, 'original')}
                                                 disabled={$isProcessing}
                                             >
+                                                <Play size={14} />
                                                 Skip to Rewrite
                                             </button>
                                         </div>
@@ -1161,16 +1236,26 @@
 
                                 {#each $allResults.pipeline_results as result, index}
                                     <div class="pipeline-arrow">
-                                        ↓ Model {result.step}: {result.model}
+                                        <ArrowDown size={16} />
+                                        Model {result.step}: {result.model}
                                         {#if result.processing_time}
-                                            <small>({result.processing_time}s)</small>
+                                            <small>
+                                                <Clock size={12} />
+                                                ({result.processing_time}s)
+                                            </small>
                                         {/if}
                                     </div>
                                     
                                     <div class="pipeline-step" class:pipeline-step--failed={!result.success} class:pipeline-step--final={index === $allResults.pipeline_results.length - 1}>
                                         <div class="pipeline-step__header">
                                             <strong>
-                                                <span class="status-dot" class:success={result.success} class:failed={!result.success}></span>
+                                                <span class="status-dot" class:success={result.success} class:failed={!result.success}>
+                                                    {#if result.success}
+                                                        <CheckCircle size={12} />
+                                                    {:else}
+                                                        <XCircle size={12} />
+                                                    {/if}
+                                                </span>
                                                 Step {result.step} Output
                                                 {#if index === $allResults.pipeline_results.length - 1}
                                                     <span class="final-badge">FINAL</span>
@@ -1179,6 +1264,7 @@
                                             {#if result.success}
                                                 <div class="pipeline-step__actions">
                                                     <button class="copy-btn" on:click={() => copyToClipboard(result.output_text)}>
+                                                        <Copy size={14} />
                                                         Copy
                                                     </button>
                                                     <button 
@@ -1186,6 +1272,7 @@
                                                         on:click={() => handleContinueToRewrite(result.output_text, result.model)}
                                                         disabled={$isProcessing}
                                                     >
+                                                        <ArrowRight size={14} />
                                                         Continue to Rewrite
                                                     </button>
                                                 </div>
@@ -1203,6 +1290,7 @@
                                             </div>
                                         {:else if result.error}
                                             <div class="pipeline-step__error">
+                                                <AlertCircle size={14} />
                                                 Error: {result.error}
                                             </div>
                                         {/if}
@@ -1225,6 +1313,7 @@
                                     <div class="step-result__header">
                                         <h3>Step 1: Paraphrased</h3>
                                         <button class="copy-btn" on:click={() => copyToClipboard($results.paraphrased)}>
+                                            <Copy size={14} />
                                             Copy
                                         </button>
                                     </div>
@@ -1238,6 +1327,7 @@
                                 <div class="step-result__header">
                                     <h3>Step 2: Final Humanized Text</h3>
                                     <button class="copy-btn copy-btn--primary" on:click={() => copyToClipboard($results.final)}>
+                                        <Copy size={14} />
                                         Copy Final
                                     </button>
                                 </div>
@@ -1268,385 +1358,10 @@
 </div>
 
 <style>
-    /* Enhanced styles for better UX */
-    .section-header {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-    }
-
-    .help-btn {
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        border: 1px solid var(--border-color);
-        background: var(--bg-secondary);
-        color: var(--text-secondary);
-        font-size: 12px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .help-btn:hover {
-        background: var(--primary-color);
-        color: white;
-    }
-
-    .help-panel {
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        font-size: 13px;
-    }
-
-    .help-list {
-        margin: 0.5rem 0 0 0;
-        padding-left: 1rem;
-    }
-
-    .help-list li {
-        margin-bottom: 0.5rem;
-    }
-
-    .config-description {
-        display: block;
-        color: var(--text-secondary);
-        font-size: 11px;
-        margin-top: 2px;
-        line-height: 1.3;
-    }
-
-    .option__description {
-        display: block;
-        margin-top: 4px;
-        color: var(--text-secondary);
-        font-size: 11px;
-        line-height: 1.3;
-    }
-
-    .model-info {
-        background: var(--bg-tertiary);
-        border-radius: 6px;
-        padding: 0.75rem;
-        margin-top: 0.5rem;
-        font-size: 12px;
-    }
-
-    .model-info__row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 0.25rem;
-    }
-
-    .model-info__label {
-        font-weight: 500;
-        color: var(--text-secondary);
-    }
-
-    .model-info__value {
-        color: var(--text-primary);
-    }
-
-    .model-description {
-        margin-top: 0.5rem;
-        font-style: italic;
-        color: var(--text-secondary);
-    }
-
-    .model-selection {
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 1rem;
-        background: var(--bg-tertiary);
-    }
-
-    .quick-select {
-        display: flex;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-        flex-wrap: wrap;
-    }
-
-    .model-checkboxes {
-        max-height: 300px;
-        overflow-y: auto;
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        padding: 0.5rem;
-        background: var(--bg-primary);
-    }
-
-    .model-checkbox {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.5rem;
-        padding: 0.75rem;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: background-color 0.2s;
-    }
-
-    .model-checkbox:hover {
-        background: var(--bg-secondary);
-    }
-
-    .model-checkbox__content {
-        flex: 1;
-    }
-
-    .model-checkbox__name {
-        font-weight: 500;
-        font-size: 13px;
-        margin-bottom: 0.25rem;
-    }
-
-    .model-checkbox__meta {
-        display: flex;
-        gap: 0.5rem;
-        font-size: 11px;
-        color: var(--text-secondary);
-        margin-bottom: 0.25rem;
-    }
-
-    .model-checkbox__description {
-        font-size: 11px;
-        color: var(--text-secondary);
-        font-style: italic;
-    }
-
-    .selection-summary {
-        margin-top: 0.5rem;
-        font-size: 12px;
-        color: var(--text-secondary);
-        text-align: center;
-    }
-
-    .threshold-container {
-        margin-top: 0.5rem;
-    }
-
-    .threshold-labels {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 0.25rem;
-        font-size: 10px;
-        color: var(--text-secondary);
-    }
-
-    .advanced-config {
-        background: var(--bg-tertiary);
-        border-radius: 8px;
-        padding: 1rem;
-        margin-top: 0.5rem;
-        border-left: 3px solid var(--primary-color);
-    }
-
-    .action-title {
-        margin: 0 0 0.25rem 0;
-        font-size: 14px;
-        font-weight: 600;
-    }
-
-    .action-description {
-        display: block;
-        font-size: 11px;
-        color: var(--text-secondary);
-        font-weight: normal;
-        margin-top: 2px;
-    }
-
-    .button-description {
-        font-size: 11px;
-        color: var(--text-secondary);
-        margin-top: 0.25rem;
-        margin-bottom: 0.75rem;
-        line-height: 1.3;
-        padding: 0 0.5rem;
-    }
-
-    .btn--text {
-        background: transparent;
-        border: none;
-        color: var(--primary-color);
-        text-decoration: none;
-        padding: 0.25rem 0;
-    }
-
-    .btn--text:hover {
-        text-decoration: underline;
-    }
-
-    /* Fixed highlighting styles */
-    .highlighted-content {
-        max-height: 300px;
-        overflow-y: auto;
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        padding: var(--space-md);
-        background: var(--bg-secondary);
-        font-family: inherit;
-        line-height: 1.5;
-        font-size: 0.8125rem;
-    }
-
-    .highlighted-html,
-    .highlighted-markdown,
-    .highlighted-plain {
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-    }
-
-    /* Improved AI highlighting */
-    .ai-highlight {
-        background: linear-gradient(135deg, #fef3c7, #fbbf24);
-        color: #92400e;
-        padding: 2px 4px;
-        border-radius: 3px;
-        font-weight: 600;
-        border: 1px solid #f59e0b;
-        box-shadow: 0 1px 2px rgba(251, 191, 36, 0.2);
-    }
-
-    /* Fix for HTML highlighting */
-    .highlighted-html mark,
-    .highlighted-html [style*="background"] {
-        background: linear-gradient(135deg, #fef3c7, #fbbf24) !important;
-        color: #92400e !important;
-        padding: 2px 4px;
-        border-radius: 3px;
-        font-weight: 600;
-        border: 1px solid #f59e0b;
-    }
-
-    /* New AI Lines Simple Display */
-    .ai-lines-simple {
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        background: var(--bg-primary);
-    }
-
-    .ai-lines-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: var(--space-md);
-        border-bottom: 1px solid var(--border-light);
-        background: var(--bg-secondary);
-    }
-
-    .ai-lines-header h4 {
-        margin: 0;
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: var(--text-primary);
-    }
-
-    .ai-lines-list {
-        max-height: 400px;
-        overflow-y: auto;
-    }
-
-    .ai-line-item {
-        display: flex;
-        align-items: flex-start;
-        gap: var(--space-sm);
-        padding: var(--space-md);
-        border-bottom: 1px solid var(--border-light);
-        transition: background-color 0.2s;
-    }
-
-    .ai-line-item:hover {
-        background: var(--bg-secondary);
-    }
-
-    .ai-line-item:last-child {
-        border-bottom: none;
-    }
-
-    .ai-line-number {
-        flex-shrink: 0;
-        width: 30px;
-        font-size: 0.75rem;
-        color: var(--text-muted);
-        font-weight: 500;
-        text-align: center;
-        background: var(--bg-tertiary);
-        border-radius: var(--radius-sm);
-        padding: var(--space-xs);
-    }
-
-    .ai-line-text {
-        flex: 1;
-        font-size: 0.8125rem;
-        line-height: 1.4;
-        color: var(--text-primary);
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-    }
-
-    .copy-btn--small {
-        padding: var(--space-xs);
-        font-size: 0.625rem;
-        min-width: auto;
-    }
-
-    /* Tertiary button style */
-    .btn--tertiary {
-        background: var(--bg-tertiary);
-        color: var(--text-secondary);
-        border: 1px solid var(--border);
-    }
-
-    .btn--tertiary:hover {
-        background: var(--bg-secondary);
-        color: var(--text-primary);
-        border-color: var(--primary);
-    }
-
-    .btn--tertiary:disabled {
-        background: var(--bg-tertiary);
-        color: var(--text-muted);
-        border-color: var(--border-light);
-        cursor: not-allowed;
-    }
-
-    /* Responsive adjustments */
-    @media (max-width: 1200px) {
-        .main-container {
-            flex-direction: column;
-        }
-        
-        .sidebar {
-            width: 100%;
-            margin-bottom: 2rem;
-        }
-        
-        .content {
-            width: 100%;
-        }
-    }
-
-    @media (max-width: 768px) {
-        .ai-lines-header {
-            flex-direction: column;
-            gap: var(--space-sm);
-            align-items: stretch;
-        }
-        
-        .ai-line-item {
-            flex-direction: column;
-            gap: var(--space-xs);
-        }
-        
-        .ai-line-number {
-            width: auto;
-            text-align: left;
-        }
+    .inline-icon {
+        display: inline-block;
+        vertical-align: middle;
+        margin-right: 0.25rem;
     }
 </style>
+
